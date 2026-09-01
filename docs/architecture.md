@@ -23,12 +23,20 @@ The protocol defines serialized meaning, validation, deterministic identity, tra
 replay behavior. Compatible implementations should be able to exchange and verify records without
 sharing a database or model provider.
 
+The protocol is also where fail-closed state transitions live. A product may persist an agent event
+in SQLite, Postgres, an object store, or an append-only log; the legality of the transition and the
+event digest cannot vary with that storage choice.
+
 ## Harness responsibilities
 
 The harness compiles canonical scientific context for a model, presents qualified capabilities,
 turns model output into proposals, and records the relationship between context, proposal, action,
 observation, evidence, and decision. It does not grant itself authority or treat transient model
 memory as canonical state.
+
+The first harness adapter renders and normalizes OpenAI-compatible envelopes. It has no HTTP client
+and accepts no credential value. Network dispatch, secret resolution, retry policy, and authority
+remain responsibilities of the embedding runtime.
 
 ## Product responsibilities
 

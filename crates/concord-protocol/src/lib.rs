@@ -4,6 +4,10 @@
 //! layers and the closed product runtime. It must not depend on `concord-core`, product storage,
 //! the desktop application, provider SDKs, or private services.
 
+pub mod agent;
 pub mod effects;
+pub mod model;
 
+pub use agent::*;
 pub use effects::*;
+pub use model::*;

@@ -10,6 +10,11 @@ The crate follows three rules:
 3. An implementation may enforce or extend a contract but may not silently redefine its serialized
    meaning.
 
-The first implementation slice defines effect classes, approval cadence, reversibility semantics,
-and portable capability permissions. Later slices will add canonical event, artifact, evidence,
-execution, and replay contracts with cross-language fixtures.
+The current implementation defines:
+
+- effect classes, approval cadence, reversibility semantics, and capability permissions;
+- provider-neutral model requests, responses, routing decisions, and context receipts;
+- agent budgets, runs, statuses, and canonical event transitions; and
+- deterministic event hashing and independent event-chain replay verification.
+
+Artifact, evidence, execution, Epact, and cross-language fixture contracts remain to be extracted.

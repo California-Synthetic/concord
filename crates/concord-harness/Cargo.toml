@@ -1,0 +1,11 @@
+[package]
+name = "concord-harness"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Model-neutral harness adapters for Concord scientific work."
+
+[dependencies]
+concord-protocol = { path = "../concord-protocol" }
+serde_json.workspace = true
+thiserror.workspace = true

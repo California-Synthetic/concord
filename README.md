@@ -5,9 +5,13 @@ portable contracts for composing model reasoning, scientific tools, evidence, ar
 and decisions without allowing a model provider or application database to become the scientific
 record.
 
-This repository is at the beginning of its extraction from the private Concord product. The first
-published implementation slice is `concord-protocol`, which defines effect classes, approval
-cadence, reversibility semantics, and portable capability permissions.
+This repository is under active extraction from the private Concord product. It already contains
+two independently buildable public layers:
+
+- `concord-protocol`: effect and approval policy; canonical model, context, run, and event
+  contracts; deterministic event hashing; transition rules; and replay verification.
+- `concord-harness`: provider-envelope adapters that translate canonical requests and responses
+  without owning credentials, network execution, storage, or authority.
 
 ## Repository direction
 
@@ -30,9 +34,12 @@ the portable meaning of a Concord record.
 cargo test --workspace
 ```
 
-The current code is intentionally small. A public release is useful only when an outside developer
+The current code is intentionally narrow. A public release is useful only when an outside developer
 can run, inspect, export, and verify a complete bounded scientific workflow using public code. That
 is the governing completion test for this repository.
+
+See [`docs/architecture.md`](docs/architecture.md) for the dependency boundary and
+[`docs/protocol.md`](docs/protocol.md) for the contracts that are executable today.
 
 ## License
 
