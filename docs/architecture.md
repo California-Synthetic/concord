@@ -1,0 +1,48 @@
+# Public architecture
+
+Concord separates portable scientific meaning from product-specific authority and operations.
+
+```text
+Concord product or another compatible application
+        |
+        v
+Concord Harness
+  model loop, context composition, capabilities, plugins, reference execution
+        |
+        v
+Concord Protocol
+  effects, events, artifacts, evidence, decisions, replay and lawful change
+```
+
+Dependencies point downward only. Public packages do not import the private Concord application,
+production persistence, provider credentials, or California Synthetic services.
+
+## Protocol responsibilities
+
+The protocol defines serialized meaning, validation, deterministic identity, transition rules, and
+replay behavior. Compatible implementations should be able to exchange and verify records without
+sharing a database or model provider.
+
+## Harness responsibilities
+
+The harness compiles canonical scientific context for a model, presents qualified capabilities,
+turns model output into proposals, and records the relationship between context, proposal, action,
+observation, evidence, and decision. It does not grant itself authority or treat transient model
+memory as canonical state.
+
+## Product responsibilities
+
+A product decides which principal may authorize an action, how credentials and budgets are managed,
+which implementation satisfies a capability, and how records are stored and presented. Product
+policy may narrow a public contract. It may not change its wire meaning or manufacture evidence that
+the public record cannot express.
+
+## Public usefulness gate
+
+The extraction is complete only when public code can:
+
+1. run a bounded local scientific workflow;
+2. inspect every model-visible context and proposed effect;
+3. export the canonical event and artifact record;
+4. verify identity, ancestry, and replay independently; and
+5. accept third-party providers, capabilities, stores, and viewers through documented contracts.
