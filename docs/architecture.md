@@ -6,7 +6,7 @@ Concord separates portable scientific meaning from product-specific authority an
 Concord product or another compatible application
         |
         v
-Concord Harness
+Concord harness
   model loop, context composition, capabilities, plugins, reference execution
         |
         v

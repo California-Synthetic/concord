@@ -1,12 +1,11 @@
-# Concord Harness
+# Concord
 
-Concord Harness is the open scientific protocol and agent-harness substrate for Concord. It defines
-portable contracts for composing model reasoning, scientific tools, evidence, artifacts, execution,
-and decisions without allowing a model provider or application database to become the scientific
-record.
+Concord is the open scientific agent harness and protocol developed by California Synthetic. It
+defines portable contracts for composing model reasoning, scientific tools, evidence, artifacts,
+execution, and decisions without allowing a model provider or application database to become the
+scientific record.
 
-This repository is under active extraction from the private Concord product. It already contains
-two independently buildable public layers:
+The repository currently contains two independently buildable public layers:
 
 - `concord-protocol`: effect and approval policy; canonical model, context, run, and event
   contracts; deterministic event hashing; transition rules; and replay verification.
@@ -15,7 +14,7 @@ two independently buildable public layers:
 
 ## Repository direction
 
-The public repository will contain:
+The public project is growing toward:
 
 - Concord's implementation-independent scientific protocol;
 - Epact's canonical intermediate representation and transition semantics;
