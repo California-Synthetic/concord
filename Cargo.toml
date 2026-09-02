@@ -6,7 +6,7 @@ resolver = "2"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/californiasynthetic/concord"
+repository = "https://github.com/California-Synthetic/concord"
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
