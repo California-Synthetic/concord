@@ -5,9 +5,11 @@
 //! the desktop application, provider SDKs, or private services.
 
 pub mod agent;
+pub mod dispatch;
 pub mod effects;
 pub mod model;
 
 pub use agent::*;
+pub use dispatch::*;
 pub use effects::*;
 pub use model::*;

@@ -2,7 +2,7 @@
 
 Status: extraction in progress
 
-The public protocol currently owns three coherent contract families.
+The public protocol currently owns four coherent contract families.
 
 ## Effects and authority vocabulary
 
@@ -33,6 +33,29 @@ sequence, previous-hash link, run identity, and status continuation.
 Replay verification proves record integrity and transition consistency. It does not prove that a
 scientific claim is true, that an external side effect occurred, or that the actor was authorized.
 Those require evidence and authority contracts that are still being extracted.
+
+## Dispatch authority and allocation
+
+`AuthorizeCampaignDispatchRequest` and `CampaignDispatchPermit` define the first executable kernel
+transition family. Authorization atomically binds an actor, campaign generation, target,
+idempotency identity, elapsed-time ceiling, and optional spend reservation before an external
+provider or worker may start. A permit then advances through:
+
+```text
+authorized -> consumed -> settled
+                       \-> interrupted -> operator resolution
+authorized -> released
+```
+
+`consumed` is the decisive external-start boundary. An unconsumed permit may be released. A
+consumed permit without trustworthy completion accounting becomes interrupted; dropping a client
+handle cannot manufacture a release receipt. `concord-harness::DispatchAllocator` composes this
+lifecycle over an embedding runtime's `DispatchKernel` implementation and rejects invalid ordering
+or changed permit bindings before returning them to an agent or capability.
+
+This is the first concrete member of the kernel's small transition vocabulary. It is deliberately
+not a generic JSON syscall: later `declare`, `freeze`, `observe`, `attest`, `decide`, and `publish`
+families must earn their own typed contracts and conformance fixtures.
 
 ## Version rule
 

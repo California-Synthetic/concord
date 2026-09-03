@@ -7,7 +7,7 @@ Concord product or another compatible application
         |
         v
 Concord harness
-  model loop, context composition, capabilities, plugins, reference execution
+  model loop, context composition, checked runtime composition, capabilities, plugins
         |
         v
 Concord Protocol
@@ -37,6 +37,13 @@ memory as canonical state.
 The first harness adapter renders and normalizes OpenAI-compatible envelopes. It has no HTTP client
 and accepts no credential value. Network dispatch, secret resolution, retry policy, and authority
 remain responsibilities of the embedding runtime.
+
+The harness also provides the portable runtime-library boundary between high-level agent or
+capability code and typed kernel transitions. `DispatchAllocator` is the first complete path. Like a
+user-space allocator over operating-system primitives, it composes authorization, reservation,
+single consumption, settlement, interruption, and release without becoming the authority itself.
+Its `DispatchKernel` trait is implemented by a product kernel or reference engine; it does not
+prescribe HTTP, SQLite, clocks, credentials, or provider placement.
 
 ## Product responsibilities
 

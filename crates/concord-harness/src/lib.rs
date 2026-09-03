@@ -4,5 +4,7 @@
 //! crate. Adapters translate between provider envelopes and the canonical protocol contracts.
 
 mod openai_compatible;
+mod runtime;
 
 pub use openai_compatible::*;
+pub use runtime::*;

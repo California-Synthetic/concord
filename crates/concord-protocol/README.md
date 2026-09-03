@@ -15,6 +15,7 @@ The current implementation defines:
 - effect classes, approval cadence, reversibility semantics, and capability permissions;
 - provider-neutral model requests, responses, routing decisions, and context receipts;
 - agent budgets, runs, statuses, and canonical event transitions; and
+- bounded dispatch authorization, reservation, consumption, settlement, interruption, and release;
 - deterministic event hashing and independent event-chain replay verification.
 
-Artifact, evidence, execution, Epact, and cross-language fixture contracts remain to be extracted.
+Artifact, evidence, general Epact, and cross-language fixture contracts remain to be extracted.

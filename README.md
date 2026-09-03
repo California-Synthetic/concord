@@ -8,9 +8,11 @@ scientific record.
 The repository currently contains two independently buildable public layers:
 
 - `concord-protocol`: effect and approval policy; canonical model, context, run, and event
-  contracts; deterministic event hashing; transition rules; and replay verification.
+  contracts; bounded dispatch authority; deterministic event hashing; transition rules; and replay
+  verification.
 - `concord-harness`: provider-envelope adapters that translate canonical requests and responses
-  without owning credentials, network execution, storage, or authority.
+  plus a checked dispatch-allocation runtime, without owning credentials, network execution,
+  storage, or authority.
 
 ## Repository direction
 
