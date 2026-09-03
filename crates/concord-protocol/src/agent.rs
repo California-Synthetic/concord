@@ -8,6 +8,34 @@ use thiserror::Error;
 pub const AGENT_RUN_CONTRACT: &str = "concord.agent-run/1";
 pub const AGENT_EVENT_CONTRACT: &str = "concord.agent-event/1";
 
+/// A durable agent run is a proposal-producing process scoped to one frozen Epact obligation.
+/// Effects and resources remain call-specific and are checked again at each kernel boundary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EpactAgentBinding {
+    pub program_image_sha256: String,
+    pub obligation_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_id: Option<String>,
+}
+
+impl EpactAgentBinding {
+    pub fn validate(&self) -> Result<(), AgentContractError> {
+        if !is_epact_sha256(&self.program_image_sha256) {
+            return Err(AgentContractError::InvalidEpactBinding);
+        }
+        require_nonempty(&self.obligation_id, "Epact obligation id")?;
+        if self
+            .capability_id
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+        {
+            return Err(AgentContractError::InvalidEpactBinding);
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentRunStatus {
@@ -159,6 +187,8 @@ pub struct AgentRun {
     #[serde(default)]
     pub allowed_tools: Vec<String>,
     pub budget: AgentBudget,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epact: Option<EpactAgentBinding>,
     pub status: AgentRunStatus,
     pub revision: u64,
     pub model_calls: u32,
@@ -194,6 +224,9 @@ impl AgentRun {
         }
         ensure_unique_tools(&self.allowed_tools)?;
         self.budget.validate()?;
+        if let Some(binding) = &self.epact {
+            binding.validate()?;
+        }
         if self.model_calls > self.budget.max_model_calls
             || self.tool_calls > self.budget.max_tool_calls
         {
@@ -225,6 +258,8 @@ pub struct CreateAgentRunRequest {
     pub allowed_tools: Vec<String>,
     #[serde(default)]
     pub budget: AgentBudget,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epact: Option<EpactAgentBinding>,
     #[serde(default)]
     pub parent_run_id: Option<String>,
     #[serde(default)]
@@ -248,6 +283,9 @@ impl CreateAgentRunRequest {
         }
         ensure_unique_tools(&self.allowed_tools)?;
         self.budget.validate()?;
+        if let Some(binding) = &self.epact {
+            binding.validate()?;
+        }
         if self.parent_run_id.is_some() != self.parent_event_hash.is_some() {
             return Err(AgentContractError::IncompleteParentLink);
         }
@@ -485,6 +523,8 @@ pub enum AgentContractError {
     IncompleteParentLink,
     #[error("agent event hash is not a SHA-256 digest")]
     InvalidEventHash,
+    #[error("agent Epact binding is invalid")]
+    InvalidEpactBinding,
     #[error("terminal agent run {status:?} cannot accept {event:?}")]
     TerminalTransition {
         status: AgentRunStatus,
@@ -535,4 +575,11 @@ fn ensure_unique_tools(tools: &[String]) -> Result<(), AgentContractError> {
 
 fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn is_epact_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }

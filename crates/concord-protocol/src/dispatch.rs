@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{EffectClass, EpactResourceEnvelope};
+use crate::{EffectClass, EpactResourceEnvelope, KernelOperation};
 
 pub const CAMPAIGN_DISPATCH_PERMIT_CONTRACT: &str = "concord.campaign-dispatch-permit/1";
 
@@ -90,6 +90,7 @@ pub struct DispatchReapSummary {
 pub struct EpactDispatchBinding {
     pub program_image_sha256: String,
     pub obligation_id: String,
+    pub operation: KernelOperation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability_id: Option<String>,
     pub effects: Vec<EffectClass>,
@@ -103,8 +104,7 @@ impl EpactDispatchBinding {
         if let Some(capability_id) = &self.capability_id {
             validate_text("capabilityId", capability_id, 240)?;
         }
-        if self.effects.is_empty()
-            || !self.resources.is_finite_and_non_negative()
+        if !self.resources.is_finite_and_non_negative()
             || !self.effects.windows(2).all(|window| window[0] < window[1])
         {
             return Err(DispatchContractError::InvalidEpactBinding);

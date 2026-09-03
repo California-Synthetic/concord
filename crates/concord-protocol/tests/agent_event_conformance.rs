@@ -87,3 +87,28 @@ fn payload_and_ancestry_tampering_fail_closed() {
         Err(AgentContractError::PreviousHashMismatch(1))
     ));
 }
+
+#[test]
+fn agent_run_binding_is_exact_and_rejects_noncanonical_identity() {
+    let binding = EpactAgentBinding {
+        program_image_sha256: "a".repeat(64),
+        obligation_id: "obligation:analyze".to_owned(),
+        capability_id: Some("capability:model".to_owned()),
+    };
+    assert!(binding.validate().is_ok());
+    assert_eq!(
+        serde_json::to_value(&binding).unwrap(),
+        json!({
+            "programImageSha256": "a".repeat(64),
+            "obligationId": "obligation:analyze",
+            "capabilityId": "capability:model"
+        })
+    );
+
+    let mut noncanonical = binding;
+    noncanonical.program_image_sha256 = "A".repeat(64);
+    assert!(matches!(
+        noncanonical.validate(),
+        Err(AgentContractError::InvalidEpactBinding)
+    ));
+}

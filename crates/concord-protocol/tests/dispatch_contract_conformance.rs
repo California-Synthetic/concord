@@ -82,6 +82,7 @@ fn epact_binding_is_exact_and_canonical_when_present() {
         program_image_sha256: "c".repeat(64),
         obligation_id: "obligation:job-7".to_owned(),
         capability_id: Some("capability:worker".to_owned()),
+        operation: concord_protocol::KernelOperation::Dispatch,
         effects: vec![EffectClass::NetworkRead, EffectClass::PaidCompute],
         resources: EpactResourceEnvelope {
             maximum_cost_usd: 12.5,
@@ -91,6 +92,10 @@ fn epact_binding_is_exact_and_canonical_when_present() {
         },
     });
     assert!(bound.validate().is_ok());
+    assert_eq!(
+        serde_json::to_value(&bound).unwrap()["epact"]["operation"],
+        "dispatch"
+    );
 
     bound.epact.as_mut().unwrap().effects.reverse();
     assert_eq!(
