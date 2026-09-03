@@ -22,6 +22,7 @@ name = "concord-harness"
 version = "0.1.0"
 dependencies = [
  "concord-protocol",
+ "epact-compiler",
  "serde_json",
  "thiserror",
 ]
@@ -63,6 +64,17 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
+]
+
+[[package]]
+name = "epact-compiler"
+version = "0.1.0"
+dependencies = [
+ "concord-protocol",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
 ]
 
 [[package]]

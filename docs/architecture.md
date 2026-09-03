@@ -9,6 +9,9 @@ Concord product or another compatible application
 Concord harness
   model loop, context composition, checked runtime composition, capabilities, plugins
         |
+        +---- Epact compiler
+              validation, normalization, program images, prospective amendments
+        |
         v
 Concord Protocol
   effects, events, artifacts, evidence, decisions, replay and lawful change
@@ -16,6 +19,10 @@ Concord Protocol
 
 Dependencies point downward only. Public packages do not import the private Concord application,
 production persistence, provider credentials, or California Synthetic services.
+
+The compiler depends only on the protocol. The harness may consume both; the compiler never imports
+the harness or an embedding product. This keeps language meaning independent from whichever model,
+agent loop, scheduler, or product happens to execute an eligible obligation.
 
 ## Protocol responsibilities
 
@@ -44,6 +51,11 @@ user-space allocator over operating-system primitives, it composes authorization
 single consumption, settlement, interruption, and release without becoming the authority itself.
 Its `DispatchKernel` trait is implemented by a product kernel or reference engine; it does not
 prescribe HTTP, SQLite, clocks, credentials, or provider placement.
+
+The Epact runtime is another pure boundary. It evaluates typed operation requests against a frozen
+program image and reconstructs obligation, object, evidence, and terminal projections from
+hash-chained accepted events. The embedding kernel supplies authenticated principals and canonical
+time, persists accepted facts, resolves receipt contents, and performs effects.
 
 ## Product responsibilities
 

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/concord-protocol", "crates/concord-harness"]
+members = ["crates/concord-protocol", "crates/epact-compiler", "crates/concord-harness"]
 resolver = "2"
 
 [workspace.package]

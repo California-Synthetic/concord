@@ -1,12 +1,13 @@
 [package]
-name = "concord-harness"
+name = "epact-compiler"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Model-neutral harness adapters for Concord scientific work."
+description = "Deterministic compiler and verifier for Epact scientific programs."
 
 [dependencies]
 concord-protocol = { path = "../concord-protocol" }
-epact-compiler = { path = "../epact-compiler" }
+serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
