@@ -3,16 +3,16 @@
 Concord separates public scientific authority from product-specific utilization.
 
 ```text
-California Synthetic workbench          another compatible client
+California Synthetic product            another compatible client
               |                                  |
               +----------------+-----------------+
                                |
-                     Concord harness
-             context, proposals, checked handles
-                               |
-                      Concord kernel
-          identity, authority, state, budgets, receipts
-                               |
+                       Concord core
+       campaigns, artifacts, review, supervision, storage
+                    /                    \
+          Concord harness          Concord kernel
+    context, proposals, handles   authority, budgets, receipts
+                    \                    /
                     Epact program image
        obligations, eligibility, replay, terminal state
                                |
@@ -20,9 +20,9 @@ California Synthetic workbench          another compatible client
           compute, data, instruments, external effects
 ```
 
-Epact and all three Concord crates are public. Dependencies point toward portable meaning: a client
-may use the kernel and harness, the kernel may use protocol and Epact, and no public package imports
-the California Synthetic product, its credentials, or company operations.
+Epact and all four Concord crates are public. Dependencies point toward portable meaning: a client
+may use the integrated core or the smaller kernel and harness directly, and no public package
+imports the California Synthetic product, its credentials, or company operations.
 
 The California Synthetic workbench is a private utilization layer. It adds interface, managed
 execution, credential custody, collaboration, commercial integrations, and private research
@@ -79,6 +79,16 @@ authority.
 The reference implementation is deliberately local. It contains no provider client, credential
 value, network effect executor, interface policy, telemetry service, or hosted control plane.
 
+## Integrated runtime responsibilities
+
+`concord-core::Database` is the complete public workbench runtime. It composes the protocol and
+harness contracts with durable campaign, artifact, evidence, research-plan, source-gate, standing
+review, capability-qualification, execution-control, and supervision records. It implements the
+same checked dispatch boundary as the minimal reference kernel.
+
+The integrated runtime owns portable product behavior, not product presentation. It contains no
+desktop interface, credential value, provider HTTP client, commercial adapter, or hosted service.
+
 ## Product responsibilities
 
 A product decides how records are presented, where qualified capabilities run, how credentials are
@@ -96,6 +106,6 @@ The release boundary is coherent only while public code can:
 4. verify identity, ancestry, and replay independently; and
 5. accept third-party providers, capabilities, and clients through documented contracts.
 
-The checked-in quickstart exercises the durable authority, snapshot, and replay path today. Context
-inspection, complete artifact manifests, and third-party capability packaging remain release work,
-not product-only kernel functions.
+The checked-in quickstart exercises the durable authority, snapshot, and replay path. The integrated
+runtime additionally carries context receipts, artifact lineage, source gates, standing review, and
+qualified capability-package records with their executable tests.

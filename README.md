@@ -4,7 +4,7 @@ Concord is a public kernel and agent runtime for coherent scientific campaigns. 
 scientific authority through Epact, turns model output into bounded proposals, authorizes effects,
 and preserves a durable record that can be replayed and independently verified.
 
-The repository contains three public layers and consumes Epact at an exact reviewed revision:
+The repository contains four public layers and consumes Epact at an exact reviewed revision:
 
 - `concord-protocol`: effect and approval policy; canonical model, context, run, and event
   contracts; bounded dispatch authority; deterministic event hashing; transition rules; and replay
@@ -16,6 +16,9 @@ The repository contains three public layers and consumes Epact at an exact revie
 - `concord-kernel`: a runnable SQLite-backed reference kernel that owns local campaign identity,
   activated Epact images, accepted facts, budgets, dispatch authority, interruption recovery,
   hash-chained receipts, snapshots, and verification.
+- `concord-core`: the integrated portable runtime used by a full scientific workbench: durable
+  campaign storage, artifact lineage, source gates, research plans, standing review, capability
+  qualification, execution control, supervision, and the complete agent record.
 
 ## Repository direction
 
@@ -24,7 +27,7 @@ The public project owns:
 - Concord's implementation-independent scientific protocol;
 - Epact's canonical intermediate representation and transition semantics;
 - model, capability, context, artifact, evidence, and execution contracts;
-- a Pi-based, model-neutral scientific harness;
+- a model-neutral scientific harness;
 - a local durable kernel and replay verifier; and
 - conformance fixtures for compatible products, plugins, and runtimes.
 
@@ -50,9 +53,10 @@ verification. The fixture demonstrates machinery; it is not scientific evidence.
 cargo test --workspace
 ```
 
-The current code is intentionally narrow, but the authority path is complete. An outside developer
-can run, inspect, snapshot, and verify a bounded campaign using only this repository and the exact
-pinned Epact revision.
+The minimal authority path and the integrated workbench runtime are both public. An outside
+developer can run, inspect, snapshot, and verify a bounded campaign, or embed the same durable
+runtime used by California Synthetic's product, using only this repository and the exact pinned
+Epact revision.
 
 See the [`kernel charter`](docs/kernel-charter.md) for the stable semantic commitments,
 [`docs/architecture.md`](docs/architecture.md) for the dependency boundary, and
