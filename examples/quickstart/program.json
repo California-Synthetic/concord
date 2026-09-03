@@ -1,0 +1,86 @@
+{
+  "contract": "epact.program/0.1-alpha",
+  "id": "program:quickstart",
+  "version": "1",
+  "title": "Quickstart local analysis",
+  "lifecycle": "frozen",
+  "createdBy": "operator",
+  "principals": [
+    {
+      "id": "operator",
+      "kind": "human",
+      "displayName": "Local operator"
+    }
+  ],
+  "objects": [
+    {
+      "id": "result",
+      "typeName": "example.analysis-result/1"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "local-analysis",
+      "capabilityType": "example.local-analysis/1",
+      "contract": "example.local-analysis/1",
+      "requiredEffects": ["local_write"]
+    }
+  ],
+  "authorities": [
+    {
+      "id": "operator-authority",
+      "principalId": "operator",
+      "operations": ["freeze", "authorize", "propose", "reserve", "dispatch", "amend"],
+      "scope": {
+        "wholeProgram": true
+      },
+      "maximumCostUsd": 1.0
+    }
+  ],
+  "resources": {
+    "maximumCostUsd": 1.0,
+    "maximumElapsedSeconds": 60,
+    "maximumToolCalls": 1,
+    "maximumCpuCores": 1.0,
+    "maximumRamGb": 1.0,
+    "maximumStorageGb": 1.0
+  },
+  "obligations": [
+    {
+      "id": "run-analysis",
+      "label": "Run the analysis",
+      "description": "Produce one locally recorded deterministic fixture result.",
+      "discharge": {
+        "kind": "capability",
+        "capability_id": "local-analysis"
+      },
+      "outputObjectIds": ["result"],
+      "effects": ["local_write"],
+      "resources": {
+        "maximumCostUsd": 1.0,
+        "maximumElapsedSeconds": 60,
+        "maximumToolCalls": 1,
+        "maximumCpuCores": 1.0,
+        "maximumRamGb": 1.0,
+        "maximumStorageGb": 1.0
+      },
+      "reversibility": {
+        "class": "checkpoint_restore",
+        "reversalAction": "Restore the campaign checkpoint."
+      },
+      "retryLimit": 1,
+      "terminalReceiptContract": "example.analysis-receipt/1"
+    }
+  ],
+  "amendmentPolicy": {
+    "authorizedPrincipalIds": ["operator"],
+    "rationaleRequired": true,
+    "effectiveCausalHeadRequired": true,
+    "preservePriorInterpretation": true
+  },
+  "terminal": {
+    "requiredObligationIds": ["run-analysis"],
+    "requiredObjectIds": ["result"],
+    "requiredReceiptContracts": ["example.analysis-receipt/1"]
+  }
+}

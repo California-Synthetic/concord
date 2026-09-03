@@ -18,4 +18,5 @@ The current implementation defines:
 - bounded dispatch authorization, reservation, consumption, settlement, interruption, and release;
 - deterministic event hashing and independent event-chain replay verification.
 
-Artifact, evidence, general Epact, and cross-language fixture contracts remain to be extracted.
+Epact supplies the language, evidence, and runtime-event contracts. Execution plans, artifact
+manifests, and cross-language conformance vectors remain active extraction work.

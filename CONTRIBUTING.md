@@ -1,7 +1,8 @@
 # Contributing to Concord
 
-Concord is an open scientific agent harness and protocol. Contributions should make a scientific
-workflow more useful, correct, inspectable, portable, performant, or pleasant to maintain.
+Concord is a public scientific kernel, harness, and protocol. Contributions should make a
+scientific workflow more useful, correct, inspectable, portable, performant, or pleasant to
+maintain.
 
 We welcome small fixes, counterexamples, measurements, conformance cases, documentation repairs, and
 larger proposals grounded in a real workflow. A large diff does not carry more authority than a small
@@ -16,7 +17,10 @@ Read [`AGENTS.md`](AGENTS.md), the [architecture](docs/architecture.md), and the
   and replay.
 - `concord-harness` owns context composition, model-envelope translation, and non-authoritative agent
   mechanics.
-- An embedding product owns credentials, network dispatch, persistence, budgets, and human authority.
+- `concord-kernel` owns the runnable local authority path, durable records, budgets, and reference
+  verification.
+- An embedding product owns its interface, credentials, network execution, collaboration, and
+  managed operations.
 
 Obvious corrections can go directly to a pull request. For a new contract, a changed wire meaning,
 or a broad abstraction, open a proposal first with one representative workflow or counterexample.

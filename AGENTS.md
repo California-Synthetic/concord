@@ -1,8 +1,9 @@
 # Concord public repository protocol
 
-This repository owns portable protocol meaning, the scientific agent harness, reference execution,
-conformance fixtures, and public integration documentation. It must remain independently useful and
-must not depend on the private Concord product or California Synthetic operations.
+This repository owns the public Concord kernel, portable protocol meaning, the scientific agent
+harness, reference execution, conformance fixtures, and public integration documentation. It must
+remain independently useful and must not depend on the California Synthetic product or company
+operations.
 
 ## Engineering culture
 

@@ -1,6 +1,6 @@
 # Executable protocol surface
 
-Status: alpha implementation in progress
+Status: alpha implementation
 
 The public protocol currently owns five coherent contract families.
 
@@ -31,8 +31,8 @@ ancestry, and creation time. `verify_agent_event_chain` independently checks eve
 sequence, previous-hash link, run identity, and status continuation.
 
 Replay verification proves record integrity and transition consistency. It does not prove that a
-scientific claim is true, that an external side effect occurred, or that the actor was authorized.
-Those require evidence and authority contracts that are still being extracted.
+scientific claim is true or that an external side effect occurred. Those require the referenced
+receipts and evidence.
 
 ## Dispatch authority and allocation
 
@@ -50,12 +50,30 @@ authorized -> released
 `consumed` is the decisive external-start boundary. An unconsumed permit may be released. A
 consumed permit without trustworthy completion accounting becomes interrupted; dropping a client
 handle cannot manufacture a release receipt. `concord-harness::DispatchAllocator` composes this
-lifecycle over an embedding runtime's `DispatchKernel` implementation and rejects invalid ordering
-or changed permit bindings before returning them to an agent or capability.
+lifecycle over a `DispatchKernel` implementation and rejects invalid ordering or changed permit
+bindings before returning them to an agent or capability. `concord-kernel::ReferenceKernel` is the
+public durable implementation.
 
 This is the first concrete member of the kernel's small transition vocabulary. It is deliberately
-not a generic JSON syscall: later `declare`, `freeze`, `observe`, `attest`, `decide`, and `publish`
-families must earn their own typed contracts and conformance fixtures.
+not a generic JSON syscall: `declare`, `freeze`, `observe`, `attest`, `decide`, and `publish`
+semantics enter through Epact's typed program and event contracts rather than an unvalidated command
+bus.
+
+## Durable reference kernel
+
+`concord-kernel` persists one active Epact image per campaign, accepted runtime events, budgets,
+dispatch permits, and kernel events. A dispatch is authorized only when all of these agree:
+
+1. the campaign is open at the requested generation;
+2. the request is bound to the exact active image and one obligation;
+3. replay reconstructs a valid current Epact state;
+4. Epact eligibility covers the principal, operation, capability, effects, placement, and resources;
+5. the budget can reserve the maximum cost; and
+6. the idempotency key has not named different authority.
+
+Every accepted mutation appends a hash-bound kernel event. `verify_campaign` rechecks the Epact
+image, Epact replay, kernel chain, campaign reconciliation digest, permit contracts, budget shape,
+and terminal projection after a restart.
 
 ## Epact programs, compilation, and replay
 
@@ -89,10 +107,13 @@ made them eligible.
 The public command-line reference paths are deliberately small:
 
 ```bash
-cargo install --git ssh://git@github.com/California-Synthetic/epact.git --rev 715b1f29323523e56f497573fb5b60692ec393ee epact-cli
+cargo install --git https://github.com/California-Synthetic/epact.git --rev 715b1f29323523e56f497573fb5b60692ec393ee epact-cli
 epact compile program.json > image.json
 epact verify-image image.json
 epact replay image.json events.json
+
+state_dir=$(mktemp -d)
+cargo run -p concord-kernel --bin concord -- demo "$state_dir/concord.db"
 ```
 
 They compile, independently verify, and replay portable JSON without a Concord product database or

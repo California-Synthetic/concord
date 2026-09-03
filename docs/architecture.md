@@ -1,38 +1,41 @@
 # Public architecture
 
-Concord separates portable scientific meaning from product-specific authority and operations.
+Concord separates public scientific authority from product-specific utilization.
 
 ```text
-Concord product or another compatible application
-        |
-        v
-Concord harness
-  model loop, context composition, checked runtime composition, capabilities, plugins
-        |
-        +---- Epact compiler
-              validation, normalization, program images, prospective amendments
-        |
-        v
-Concord Protocol
-  effects, events, artifacts, evidence, decisions, replay and lawful change
+California Synthetic workbench          another compatible client
+              |                                  |
+              +----------------+-----------------+
+                               |
+                     Concord harness
+             context, proposals, checked handles
+                               |
+                      Concord kernel
+          identity, authority, state, budgets, receipts
+                               |
+                    Epact program image
+       obligations, eligibility, replay, terminal state
+                               |
+                qualified capability boundary
+          compute, data, instruments, external effects
 ```
 
-Dependencies point downward only. Public packages do not import the private Concord application,
-production persistence, provider credentials, or California Synthetic services.
+Epact and all three Concord crates are public. Dependencies point toward portable meaning: a client
+may use the kernel and harness, the kernel may use protocol and Epact, and no public package imports
+the California Synthetic product, its credentials, or company operations.
 
-The compiler depends only on the protocol. The harness may consume both; the compiler never imports
-the harness or an embedding product. This keeps language meaning independent from whichever model,
-agent loop, scheduler, or product happens to execute an eligible obligation.
+The California Synthetic workbench is a private utilization layer. It adds interface, managed
+execution, credential custody, collaboration, commercial integrations, and private research
+programs without becoming the sole implementation of Concord authority.
 
 ## Protocol responsibilities
 
 The protocol defines serialized meaning, validation, deterministic identity, transition rules, and
-replay behavior. Compatible implementations should be able to exchange and verify records without
-sharing a database or model provider.
+replay behavior. Compatible implementations can exchange and verify records without sharing a
+database or model provider.
 
-The protocol is also where fail-closed state transitions live. A product may persist an agent event
-in SQLite, Postgres, an object store, or an append-only log; the legality of the transition and the
-event digest cannot vary with that storage choice.
+A compatible implementation may persist a record in SQLite, Postgres, an object store, or an
+append-only log. The legality of the transition and its digest cannot vary with that storage choice.
 
 ## Harness responsibilities
 
@@ -41,35 +44,58 @@ turns model output into proposals, and records the relationship between context,
 observation, evidence, and decision. It does not grant itself authority or treat transient model
 memory as canonical state.
 
-The first harness adapter renders and normalizes OpenAI-compatible envelopes. It has no HTTP client
-and accepts no credential value. Network dispatch, secret resolution, retry policy, and authority
-remain responsibilities of the embedding runtime.
+The first harness adapter renders and normalizes one widely implemented chat envelope. It has no
+HTTP client and accepts no credential value. Network dispatch, secret resolution, retry policy, and
+provider placement remain responsibilities of the embedding environment.
 
-The harness also provides the portable runtime-library boundary between high-level agent or
-capability code and typed kernel transitions. `DispatchAllocator` is the first complete path. Like a
-user-space allocator over operating-system primitives, it composes authorization, reservation,
-single consumption, settlement, interruption, and release without becoming the authority itself.
-Its `DispatchKernel` trait is implemented by a product kernel or reference engine; it does not
-prescribe HTTP, SQLite, clocks, credentials, or provider placement.
+`DispatchAllocator` is the user-space boundary between high-level agent or capability code and
+typed kernel transitions. It composes authorization, reservation, single consumption, settlement,
+interruption, and release without becoming the authority itself. Its `DispatchKernel` trait is
+implemented by the public reference kernel and may be implemented by a compatible store.
 
-The Epact runtime is another pure boundary. It evaluates typed operation requests against a frozen
-program image and reconstructs obligation, object, evidence, and terminal projections from
-hash-chained accepted events. The embedding kernel supplies authenticated principals and canonical
-time, persists accepted facts, resolves receipt contents, and performs effects.
+## Epact responsibilities
+
+Epact defines programs, principals, objects, capabilities, obligations, gates, evidence rules,
+resource ceilings, effects, and lawful amendment. Its compiler produces a deterministic program
+image. Its runtime evaluates typed operations and reconstructs the same projection from
+hash-chained accepted events.
+
+The kernel supplies authenticated principals and canonical time, persists accepted facts, and binds
+receipt identities. Capability implementations perform effects only after consuming bounded
+authority.
+
+## Kernel responsibilities
+
+`concord-kernel::ReferenceKernel` is the runnable public authority center. Its SQLite record owns:
+
+- campaign identity and one exact active Epact image;
+- accepted Epact events and their independently replayable projection;
+- budget accounts, exposure, settlement, and cost-overrun blocking;
+- idempotent dispatch authorization and single-consumer permits;
+- fail-closed interruption and evidence-bound reconciliation;
+- a second hash chain covering every accepted kernel transition; and
+- complete snapshots and restart-time verification.
+
+The reference implementation is deliberately local. It contains no provider client, credential
+value, network effect executor, interface policy, telemetry service, or hosted control plane.
 
 ## Product responsibilities
 
-A product decides which principal may authorize an action, how credentials and budgets are managed,
-which implementation satisfies a capability, and how records are stored and presented. Product
-policy may narrow a public contract. It may not change its wire meaning or manufacture evidence that
-the public record cannot express.
+A product decides how records are presented, where qualified capabilities run, how credentials are
+held, and how organizations collaborate. It may add stricter approval, isolation, retention, and
+deployment policy. It may not widen an Epact grant, change portable record meaning, or manufacture
+evidence that the public kernel cannot verify.
 
 ## Public usefulness gate
 
-The extraction is complete only when public code can:
+The release boundary is coherent only while public code can:
 
 1. run a bounded local scientific workflow;
 2. inspect every model-visible context and proposed effect;
-3. export the canonical event and artifact record;
+3. snapshot the canonical authority and event record;
 4. verify identity, ancestry, and replay independently; and
-5. accept third-party providers, capabilities, stores, and viewers through documented contracts.
+5. accept third-party providers, capabilities, and clients through documented contracts.
+
+The checked-in quickstart exercises the durable authority, snapshot, and replay path today. Context
+inspection, complete artifact manifests, and third-party capability packaging remain release work,
+not private kernel functions.

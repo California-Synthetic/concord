@@ -1,0 +1,27 @@
+[package]
+name = "concord-kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Public durable reference kernel for Concord scientific campaigns."
+
+[[bin]]
+name = "concord"
+path = "src/bin/concord.rs"
+
+[dependencies]
+chrono.workspace = true
+concord-harness = { path = "../concord-harness" }
+concord-protocol = { path = "../concord-protocol" }
+epact-compiler.workspace = true
+epact-protocol.workspace = true
+epact-runtime.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile = "3.21"
