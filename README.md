@@ -40,6 +40,12 @@ is the governing completion test for this repository.
 See [`docs/architecture.md`](docs/architecture.md) for the dependency boundary and
 [`docs/protocol.md`](docs/protocol.md) for the contracts that are executable today.
 
+## Contributing
+
+Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). Concord favors concrete workflows, explicit
+invariants, reproducible evidence, and the smallest complete mechanism. Automated contributors must
+also follow the scoped `AGENTS.md` rules in the area they change.
+
 ## License
 
 MIT
