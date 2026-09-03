@@ -98,4 +98,4 @@ The release boundary is coherent only while public code can:
 
 The checked-in quickstart exercises the durable authority, snapshot, and replay path today. Context
 inspection, complete artifact manifests, and third-party capability packaging remain release work,
-not private kernel functions.
+not product-only kernel functions.
