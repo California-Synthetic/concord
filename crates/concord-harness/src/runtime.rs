@@ -238,7 +238,10 @@ where
     }
 }
 
-impl<KernelError> Error for DispatchRuntimeError<KernelError> where KernelError: Error + 'static {}
+impl<KernelError> Error for DispatchRuntimeError<KernelError> where
+    KernelError: fmt::Debug + fmt::Display + 'static
+{
+}
 
 fn validate_initial_permit<KernelError>(
     campaign_id: &str,
