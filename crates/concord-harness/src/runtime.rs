@@ -116,10 +116,8 @@ where
                 actual: self.permit.status,
             });
         }
-        if !actual_cost_usd.is_finite()
-            || actual_cost_usd < 0.0
-            || settlement_basis.trim().is_empty()
-        {
+        let settlement_basis = settlement_basis.trim();
+        if !actual_cost_usd.is_finite() || actual_cost_usd < 0.0 || settlement_basis.is_empty() {
             return Err(DispatchRuntimeError::InvalidSettlement);
         }
         let next = self
