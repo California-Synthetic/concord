@@ -338,7 +338,11 @@ fn program() -> EpactProgram {
             ),
             authority(
                 "principal:operator",
-                vec![KernelOperation::Amend],
+                vec![
+                    KernelOperation::Freeze,
+                    KernelOperation::Authorize,
+                    KernelOperation::Amend,
+                ],
                 &[],
                 0.0,
                 true,

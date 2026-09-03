@@ -575,6 +575,22 @@ fn activation_findings(program: &EpactProgram) -> Vec<EpactCompilerFinding> {
             "program must be frozen before activation",
         ));
     }
+    for operation in [KernelOperation::Freeze, KernelOperation::Authorize] {
+        if !program.authorities.iter().any(|grant| {
+            grant.principal_id == program.created_by
+                && grant.operations.contains(&operation)
+                && grant.scope.whole_program
+        }) {
+            findings.push(finding(
+                "missing_program_authority",
+                &program.created_by,
+                &format!(
+                    "program creator lacks whole-program {} authority",
+                    operation_name(operation)
+                ),
+            ));
+        }
+    }
     for obligation in &program.obligations {
         require_operation_finding(program, obligation, KernelOperation::Propose, &mut findings);
         let operation = match obligation.discharge {
@@ -631,6 +647,8 @@ fn require_operation_finding(
     if !program.authorities.iter().any(|grant| {
         grant.operations.contains(&operation)
             && authority_applies(grant, &obligation.id, capability_id)
+            && (obligation.resources.maximum_cost_usd <= 0.0
+                || grant.maximum_cost_usd + 1e-9 >= obligation.resources.maximum_cost_usd)
     }) {
         findings.push(finding(
             "missing_operation_authority",
