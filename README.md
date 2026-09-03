@@ -12,10 +12,10 @@ reviewed revision:
   contracts; bounded dispatch authority; deterministic event hashing; transition rules; and replay
   verification.
 - [`Epact`](https://github.com/California-Synthetic/epact): separately versioned protocol,
-  deterministic compiler, program image verifier, and reference CLI.
+  deterministic compiler, replay and eligibility runtime, conformance vectors, and reference CLI.
 - `concord-harness`: provider-envelope adapters that translate canonical requests and responses
-  plus checked dispatch allocation, Epact eligibility, and replay, without owning credentials,
-  network execution, storage, clocks, or authority.
+  plus checked dispatch allocation, while re-exporting the exact pinned Epact runtime without
+  owning credentials, network execution, storage, clocks, or authority.
 
 ## Repository direction
 

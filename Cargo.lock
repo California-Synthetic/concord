@@ -23,6 +23,7 @@ version = "0.1.0"
 dependencies = [
  "concord-protocol",
  "epact-compiler",
+ "epact-runtime",
  "serde_json",
  "thiserror",
 ]
@@ -70,7 +71,7 @@ dependencies = [
 [[package]]
 name = "epact-compiler"
 version = "0.1.0-alpha.1"
-source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e#4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e"
+source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=597c892e7ca4c2652a2a308b08c70711b05164ff#597c892e7ca4c2652a2a308b08c70711b05164ff"
 dependencies = [
  "epact-protocol",
  "serde",
@@ -82,11 +83,21 @@ dependencies = [
 [[package]]
 name = "epact-protocol"
 version = "0.1.0-alpha.1"
-source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e#4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e"
+source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=597c892e7ca4c2652a2a308b08c70711b05164ff#597c892e7ca4c2652a2a308b08c70711b05164ff"
 dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "thiserror",
+]
+
+[[package]]
+name = "epact-runtime"
+version = "0.1.0-alpha.1"
+source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=597c892e7ca4c2652a2a308b08c70711b05164ff#597c892e7ca4c2652a2a308b08c70711b05164ff"
+dependencies = [
+ "epact-compiler",
+ "epact-protocol",
  "thiserror",
 ]
 

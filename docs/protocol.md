@@ -70,16 +70,16 @@ resources, amendment safety, and terminal reachability inputs before producing a
 the source program and compiled image receive stable SHA-256 identities. A structurally valid draft
 may compile for review, but activation findings prevent it from becoming executable authority.
 
-`concord-harness::evaluate_epact_operation` checks a kernel-timestamped request against the exact
+`epact-runtime::evaluate_epact_operation` checks a kernel-timestamped request against the exact
 image, current obligation projection, effect and resource declaration, capability binding, scoped
 principal authority, and authority validity window. It returns stable blockers rather than choosing
 a provider or performing the effect.
 
 `EpactRuntimeEvent` records receipt-bound object, evidence, and obligation transitions in an
-image-bound hash chain. `replay_epact_events` rejects broken order, unknown identities, premature
-discharge, missing output or evidence requirements, and changed receipt contracts, then rebuilds
-the same projection after restart. Integrity is not scientific truth: kernels and reviewers must
-still inspect the referenced receipts and evidence.
+image-bound hash chain. `replay_epact_events` rejects broken order, unknown or unauthorized actors,
+premature discharge, missing output or evidence requirements, and changed receipt contracts, then
+rebuilds the same projection after restart. Integrity is not scientific truth: kernels and
+reviewers must still inspect the referenced receipts and evidence.
 
 An `EpactAmendment` links an independently immutable successor image to the predecessor's exact
 program identity and event head. The predecessor's whole-program amendment authority must cover the
@@ -89,10 +89,10 @@ made them eligible.
 The public command-line reference paths are deliberately small:
 
 ```bash
-cargo install --git ssh://git@github.com/California-Synthetic/epact.git --rev 4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e epact-compiler
-epactc compile program.json > image.json
-epactc verify-image image.json
-cargo run -p concord-harness --bin concord-verify -- replay image.json events.json
+cargo install --git ssh://git@github.com/California-Synthetic/epact.git --rev 597c892e7ca4c2652a2a308b08c70711b05164ff epact-cli
+epact compile program.json > image.json
+epact verify-image image.json
+epact replay image.json events.json
 ```
 
 They compile, independently verify, and replay portable JSON without a Concord product database or
