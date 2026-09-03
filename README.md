@@ -54,7 +54,8 @@ The current code is intentionally narrow, but the authority path is complete. An
 can run, inspect, snapshot, and verify a bounded campaign using only this repository and the exact
 pinned Epact revision.
 
-See [`docs/architecture.md`](docs/architecture.md) for the dependency boundary and
+See the [`kernel charter`](docs/kernel-charter.md) for the stable semantic commitments,
+[`docs/architecture.md`](docs/architecture.md) for the dependency boundary, and
 [`docs/protocol.md`](docs/protocol.md) for the contracts that are executable today.
 
 ## Contributing
