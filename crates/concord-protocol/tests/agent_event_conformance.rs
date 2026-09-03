@@ -92,6 +92,7 @@ fn payload_and_ancestry_tampering_fail_closed() {
 fn agent_run_binding_is_exact_and_rejects_noncanonical_identity() {
     let binding = EpactAgentBinding {
         program_image_sha256: "a".repeat(64),
+        principal_id: "principal:inkling".to_owned(),
         obligation_id: "obligation:analyze".to_owned(),
         capability_id: Some("capability:model".to_owned()),
     };
@@ -100,6 +101,7 @@ fn agent_run_binding_is_exact_and_rejects_noncanonical_identity() {
         serde_json::to_value(&binding).unwrap(),
         json!({
             "programImageSha256": "a".repeat(64),
+            "principalId": "principal:inkling",
             "obligationId": "obligation:analyze",
             "capabilityId": "capability:model"
         })

@@ -14,6 +14,7 @@ pub const AGENT_EVENT_CONTRACT: &str = "concord.agent-event/1";
 #[serde(rename_all = "camelCase")]
 pub struct EpactAgentBinding {
     pub program_image_sha256: String,
+    pub principal_id: String,
     pub obligation_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability_id: Option<String>,
@@ -24,6 +25,7 @@ impl EpactAgentBinding {
         if !is_epact_sha256(&self.program_image_sha256) {
             return Err(AgentContractError::InvalidEpactBinding);
         }
+        require_nonempty(&self.principal_id, "Epact principal id")?;
         require_nonempty(&self.obligation_id, "Epact obligation id")?;
         if self
             .capability_id
