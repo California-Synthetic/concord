@@ -10,6 +10,7 @@ pub const CAMPAIGN_DISPATCH_PERMIT_CONTRACT: &str = "concord.campaign-dispatch-p
 pub enum DispatchOperation {
     ExecutionRun,
     AgentModelCall,
+    AgentToolCall,
     ResearchPhase,
     ExternalJob,
 }
@@ -19,6 +20,7 @@ impl DispatchOperation {
         match self {
             Self::ExecutionRun => "execution_run",
             Self::AgentModelCall => "agent_model_call",
+            Self::AgentToolCall => "agent_tool_call",
             Self::ResearchPhase => "research_phase",
             Self::ExternalJob => "external_job",
         }

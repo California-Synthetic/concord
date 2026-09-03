@@ -132,6 +132,10 @@ fn wire_names_and_contract_identity_are_stable() {
     assert_eq!(encoded["status"], "authorized");
     assert_eq!(encoded["maximumCostUsd"], 12.5);
     assert_eq!(encoded["reserveBudget"], true);
+    assert_eq!(
+        serde_json::to_value(DispatchOperation::AgentToolCall).unwrap(),
+        "agent_tool_call"
+    );
 }
 
 #[test]
