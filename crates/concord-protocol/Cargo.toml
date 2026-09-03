@@ -6,6 +6,7 @@ license.workspace = true
 description = "Open protocol contracts and conformance rules for Concord scientific work."
 
 [dependencies]
+epact-protocol.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

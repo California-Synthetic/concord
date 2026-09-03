@@ -7,11 +7,10 @@
 pub mod agent;
 pub mod dispatch;
 pub mod effects;
-pub mod epact;
 pub mod model;
 
 pub use agent::*;
 pub use dispatch::*;
 pub use effects::*;
-pub use epact::*;
+pub use epact_protocol::*;
 pub use model::*;

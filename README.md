@@ -5,13 +5,14 @@ defines portable contracts for composing model reasoning, scientific tools, evid
 execution, and decisions without allowing a model provider or application database to become the
 scientific record.
 
-The repository currently contains three independently buildable public layers:
+The repository contains two independently buildable public layers and consumes Epact at an exact
+reviewed revision:
 
 - `concord-protocol`: effect and approval policy; canonical model, context, run, and event
   contracts; bounded dispatch authority; deterministic event hashing; transition rules; and replay
   verification.
-- `epact-compiler`: deterministic validation and lowering of finite Epact programs into
-  content-addressed, kernel-consumable program images.
+- [`Epact`](https://github.com/California-Synthetic/epact): separately versioned protocol,
+  deterministic compiler, program image verifier, and reference CLI.
 - `concord-harness`: provider-envelope adapters that translate canonical requests and responses
   plus checked dispatch allocation, Epact eligibility, and replay, without owning credentials,
   network execution, storage, clocks, or authority.

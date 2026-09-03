@@ -31,6 +31,7 @@ dependencies = [
 name = "concord-protocol"
 version = "0.1.0"
 dependencies = [
+ "epact-protocol",
  "serde",
  "serde_json",
  "sha2",
@@ -68,9 +69,21 @@ dependencies = [
 
 [[package]]
 name = "epact-compiler"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
+source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e#4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e"
 dependencies = [
- "concord-protocol",
+ "epact-protocol",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
+name = "epact-protocol"
+version = "0.1.0-alpha.1"
+source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e#4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e"
+dependencies = [
  "serde",
  "serde_json",
  "sha2",

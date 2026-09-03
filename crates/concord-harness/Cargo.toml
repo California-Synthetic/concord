@@ -7,6 +7,6 @@ description = "Model-neutral harness adapters for Concord scientific work."
 
 [dependencies]
 concord-protocol = { path = "../concord-protocol" }
-epact-compiler = { path = "../epact-compiler" }
+epact-compiler.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

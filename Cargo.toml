@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/concord-protocol", "crates/epact-compiler", "crates/concord-harness"]
+members = ["crates/concord-protocol", "crates/concord-harness"]
 resolver = "2"
 
 [workspace.package]
@@ -13,3 +13,5 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
 thiserror = "2.0"
+epact-compiler = { git = "ssh://git@github.com/California-Synthetic/epact.git", rev = "4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e" }
+epact-protocol = { git = "ssh://git@github.com/California-Synthetic/epact.git", rev = "4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e" }

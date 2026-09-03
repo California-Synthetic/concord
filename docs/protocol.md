@@ -64,7 +64,7 @@ capabilities, scoped authority, finite obligations, gates, evidence rules, resou
 reversibility, lawful amendment, and terminal conditions. The core is intentionally not
 Turing-complete; general computation remains behind qualified capabilities.
 
-`epact-compiler::compile_program` validates references, cycles, capability effects, authority,
+The separately versioned `epact-compiler::compile_program` validates references, cycles, capability effects, authority,
 resources, amendment safety, and terminal reachability inputs before producing a deterministic
 `EpactProgramImage`. Set-like ordering is normalized, object keys use canonical Epact JSON, and both
 the source program and compiled image receive stable SHA-256 identities. A structurally valid draft
@@ -89,8 +89,9 @@ made them eligible.
 The public command-line reference paths are deliberately small:
 
 ```bash
-cargo run -p epact-compiler --bin epactc -- compile program.json > image.json
-cargo run -p epact-compiler --bin epactc -- verify-image image.json
+cargo install --git ssh://git@github.com/California-Synthetic/epact.git --rev 4ceaf99bdfdaafa8d18cb08f6ff2f3b40c9cf95e epact-compiler
+epactc compile program.json > image.json
+epactc verify-image image.json
 cargo run -p concord-harness --bin concord-verify -- replay image.json events.json
 ```
 
