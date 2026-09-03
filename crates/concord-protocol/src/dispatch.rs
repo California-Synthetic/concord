@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::{EffectClass, EpactResourceEnvelope};
+
 pub const CAMPAIGN_DISPATCH_PERMIT_CONTRACT: &str = "concord.campaign-dispatch-permit/1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +81,38 @@ pub struct DispatchReapSummary {
     pub interrupted: u64,
 }
 
+/// Optional binding from a generic dispatch permit to one exact Epact obligation.
+///
+/// Legacy campaigns may remain unbound. Once a product activates an Epact image for a campaign,
+/// its kernel requires this binding and evaluates it before issuing the permit.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EpactDispatchBinding {
+    pub program_image_sha256: String,
+    pub obligation_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_id: Option<String>,
+    pub effects: Vec<EffectClass>,
+    pub resources: EpactResourceEnvelope,
+}
+
+impl EpactDispatchBinding {
+    pub fn validate(&self) -> Result<(), DispatchContractError> {
+        validate_sha256("programImageSha256", &self.program_image_sha256)?;
+        validate_text("obligationId", &self.obligation_id, 240)?;
+        if let Some(capability_id) = &self.capability_id {
+            validate_text("capabilityId", capability_id, 240)?;
+        }
+        if self.effects.is_empty()
+            || !self.resources.is_finite_and_non_negative()
+            || !self.effects.windows(2).all(|window| window[0] < window[1])
+        {
+            return Err(DispatchContractError::InvalidEpactBinding);
+        }
+        Ok(())
+    }
+}
+
 /// Requests a bounded right to cross an external execution boundary.
 ///
 /// Authorization and reservation are one atomic kernel operation. `reserve_budget` asks the
@@ -101,6 +135,8 @@ pub struct AuthorizeCampaignDispatchRequest {
     #[serde(default)]
     pub budget_pre_reserved: bool,
     pub maximum_elapsed_seconds: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epact: Option<EpactDispatchBinding>,
 }
 
 impl AuthorizeCampaignDispatchRequest {
@@ -129,6 +165,14 @@ impl AuthorizeCampaignDispatchRequest {
         if !(5..=86_400).contains(&self.maximum_elapsed_seconds) {
             return Err(DispatchContractError::InvalidElapsedLimit);
         }
+        if let Some(binding) = &self.epact {
+            binding.validate()?;
+            if (binding.resources.maximum_cost_usd - self.maximum_cost_usd).abs() > 1e-9
+                || binding.resources.maximum_elapsed_seconds != self.maximum_elapsed_seconds
+            {
+                return Err(DispatchContractError::EpactDispatchCeilingMismatch);
+            }
+        }
         Ok(())
     }
 }
@@ -151,6 +195,8 @@ pub struct CampaignDispatchPermit {
     pub reserve_budget: bool,
     #[serde(default)]
     pub budget_pre_reserved: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epact: Option<EpactDispatchBinding>,
     pub reconciliation_sha256: String,
     #[serde(default)]
     pub status: DispatchPermitStatus,
@@ -204,6 +250,12 @@ impl CampaignDispatchPermit {
             .is_some_and(|cost| !cost.is_finite() || cost < 0.0)
         {
             return Err(DispatchContractError::InvalidActualCost);
+        }
+        if let Some(binding) = &self.epact {
+            binding.validate()?;
+            if (binding.resources.maximum_cost_usd - self.maximum_cost_usd).abs() > 1e-9 {
+                return Err(DispatchContractError::EpactDispatchCeilingMismatch);
+            }
         }
         match self.status {
             DispatchPermitStatus::Authorized => {
@@ -324,6 +376,10 @@ pub enum DispatchContractError {
     PreReservationMissingBudget,
     #[error("maximumElapsedSeconds must be between 5 and 86400")]
     InvalidElapsedLimit,
+    #[error("Epact dispatch binding must have valid identities, effects, and resources")]
+    InvalidEpactBinding,
+    #[error("Epact resource ceilings must match the generic dispatch permit ceilings")]
+    EpactDispatchCeilingMismatch,
     #[error("dispatch permit fields do not agree with its lifecycle status")]
     InconsistentPermitState,
     #[error("no-provider-start resolution cannot include actualCostUsd")]

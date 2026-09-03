@@ -1,7 +1,8 @@
 use concord_protocol::{
     AuthorizeCampaignDispatchRequest, CampaignDispatchPermit, DispatchContractError,
-    DispatchOperation, DispatchPermitStatus, InterruptedDispatchResolution,
-    ResolveInterruptedDispatchRequest, CAMPAIGN_DISPATCH_PERMIT_CONTRACT,
+    DispatchOperation, DispatchPermitStatus, EffectClass, EpactDispatchBinding,
+    EpactResourceEnvelope, InterruptedDispatchResolution, ResolveInterruptedDispatchRequest,
+    CAMPAIGN_DISPATCH_PERMIT_CONTRACT,
 };
 
 fn request() -> AuthorizeCampaignDispatchRequest {
@@ -16,6 +17,7 @@ fn request() -> AuthorizeCampaignDispatchRequest {
         reserve_budget: true,
         budget_pre_reserved: false,
         maximum_elapsed_seconds: 900,
+        epact: None,
     }
 }
 
@@ -33,6 +35,7 @@ fn permit(status: DispatchPermitStatus) -> CampaignDispatchPermit {
         maximum_cost_usd: 12.5,
         reserve_budget: true,
         budget_pre_reserved: false,
+        epact: None,
         reconciliation_sha256: "a".repeat(64),
         status,
         issued_at: "2026-09-03T08:00:00Z".to_owned(),
@@ -69,6 +72,30 @@ fn dispatch_request_rejects_ambiguous_or_unbounded_accounting() {
     assert_eq!(
         double_reserved.validate(),
         Err(DispatchContractError::ConflictingReservationModes)
+    );
+}
+
+#[test]
+fn epact_binding_is_exact_and_canonical_when_present() {
+    let mut bound = request();
+    bound.epact = Some(EpactDispatchBinding {
+        program_image_sha256: "c".repeat(64),
+        obligation_id: "obligation:job-7".to_owned(),
+        capability_id: Some("capability:worker".to_owned()),
+        effects: vec![EffectClass::NetworkRead, EffectClass::PaidCompute],
+        resources: EpactResourceEnvelope {
+            maximum_cost_usd: 12.5,
+            maximum_elapsed_seconds: 900,
+            maximum_external_jobs: 1,
+            ..EpactResourceEnvelope::default()
+        },
+    });
+    assert!(bound.validate().is_ok());
+
+    bound.epact.as_mut().unwrap().effects.reverse();
+    assert_eq!(
+        bound.validate(),
+        Err(DispatchContractError::InvalidEpactBinding)
     );
 }
 

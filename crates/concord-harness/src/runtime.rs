@@ -265,6 +265,7 @@ fn validate_initial_permit<KernelError>(
         || permit.maximum_cost_usd != request.maximum_cost_usd
         || permit.reserve_budget != request.reserve_budget
         || permit.budget_pre_reserved != request.budget_pre_reserved
+        || permit.epact != request.epact
     {
         return Err(DispatchRuntimeError::KernelInvariant(
             "authorized permit differs from the requested authority",
@@ -286,6 +287,7 @@ fn same_binding(left: &CampaignDispatchPermit, right: &CampaignDispatchPermit) -
         && left.maximum_cost_usd == right.maximum_cost_usd
         && left.reserve_budget == right.reserve_budget
         && left.budget_pre_reserved == right.budget_pre_reserved
+        && left.epact == right.epact
         && left.reconciliation_sha256 == right.reconciliation_sha256
         && left.issued_at == right.issued_at
         && left.deadline_at == right.deadline_at

@@ -169,6 +169,7 @@ fn request() -> AuthorizeCampaignDispatchRequest {
         reserve_budget: true,
         budget_pre_reserved: false,
         maximum_elapsed_seconds: 900,
+        epact: None,
     }
 }
 
@@ -186,6 +187,7 @@ fn authorized_permit() -> CampaignDispatchPermit {
         maximum_cost_usd: 12.5,
         reserve_budget: true,
         budget_pre_reserved: false,
+        epact: None,
         reconciliation_sha256: "a".repeat(64),
         status: DispatchPermitStatus::Authorized,
         issued_at: "2026-09-03T08:00:00Z".to_owned(),
