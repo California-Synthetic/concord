@@ -1,8 +1,8 @@
 use concord_protocol::{
     AuthorizeCampaignDispatchRequest, CampaignDispatchPermit, DispatchContractError,
     DispatchOperation, DispatchPermitStatus, EffectClass, EpactDispatchBinding,
-    EpactResourceEnvelope, InterruptedDispatchResolution, ResolveInterruptedDispatchRequest,
-    CAMPAIGN_DISPATCH_PERMIT_CONTRACT,
+    EpactPlacementClaim, EpactPlacementKind, EpactResourceEnvelope, InterruptedDispatchResolution,
+    ResolveInterruptedDispatchRequest, CAMPAIGN_DISPATCH_PERMIT_CONTRACT,
 };
 
 fn request() -> AuthorizeCampaignDispatchRequest {
@@ -90,11 +90,20 @@ fn epact_binding_is_exact_and_canonical_when_present() {
             maximum_external_jobs: 1,
             ..EpactResourceEnvelope::default()
         },
+        placement: Some(EpactPlacementClaim {
+            kind: EpactPlacementKind::Managed,
+            target_capabilities: vec!["gpu".to_owned(), "receipt_owned".to_owned()],
+            disconnect_safe: true,
+        }),
     });
     assert!(bound.validate().is_ok());
     assert_eq!(
         serde_json::to_value(&bound).unwrap()["epact"]["operation"],
         "dispatch"
+    );
+    assert_eq!(
+        serde_json::to_value(&bound).unwrap()["epact"]["placement"]["kind"],
+        "managed"
     );
 
     bound.epact.as_mut().unwrap().effects.reverse();

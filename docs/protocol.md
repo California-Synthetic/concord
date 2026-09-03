@@ -89,7 +89,7 @@ made them eligible.
 The public command-line reference paths are deliberately small:
 
 ```bash
-cargo install --git ssh://git@github.com/California-Synthetic/epact.git --rev 26166c89f50ff05abfb27ce1c7aca3f55ccbf58f epact-cli
+cargo install --git ssh://git@github.com/California-Synthetic/epact.git --rev 715b1f29323523e56f497573fb5b60692ec393ee epact-cli
 epact compile program.json > image.json
 epact verify-image image.json
 epact replay image.json events.json

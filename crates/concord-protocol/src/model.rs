@@ -335,7 +335,7 @@ impl ModelExecutionRequest {
         }
         for message in &self.messages {
             if message.content.trim().is_empty()
-                && !(message.role == ModelRole::Assistant && !message.tool_calls.is_empty())
+                && (message.role != ModelRole::Assistant || message.tool_calls.is_empty())
             {
                 return Err(ModelContractError::InvalidMessageContent);
             }
