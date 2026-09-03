@@ -71,7 +71,7 @@ dependencies = [
 [[package]]
 name = "epact-compiler"
 version = "0.1.0-alpha.1"
-source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=597c892e7ca4c2652a2a308b08c70711b05164ff#597c892e7ca4c2652a2a308b08c70711b05164ff"
+source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=26166c89f50ff05abfb27ce1c7aca3f55ccbf58f#26166c89f50ff05abfb27ce1c7aca3f55ccbf58f"
 dependencies = [
  "epact-protocol",
  "serde",
@@ -83,7 +83,7 @@ dependencies = [
 [[package]]
 name = "epact-protocol"
 version = "0.1.0-alpha.1"
-source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=597c892e7ca4c2652a2a308b08c70711b05164ff#597c892e7ca4c2652a2a308b08c70711b05164ff"
+source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=26166c89f50ff05abfb27ce1c7aca3f55ccbf58f#26166c89f50ff05abfb27ce1c7aca3f55ccbf58f"
 dependencies = [
  "serde",
  "serde_json",
@@ -94,7 +94,7 @@ dependencies = [
 [[package]]
 name = "epact-runtime"
 version = "0.1.0-alpha.1"
-source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=597c892e7ca4c2652a2a308b08c70711b05164ff#597c892e7ca4c2652a2a308b08c70711b05164ff"
+source = "git+ssh://git@github.com/California-Synthetic/epact.git?rev=26166c89f50ff05abfb27ce1c7aca3f55ccbf58f#26166c89f50ff05abfb27ce1c7aca3f55ccbf58f"
 dependencies = [
  "epact-compiler",
  "epact-protocol",
