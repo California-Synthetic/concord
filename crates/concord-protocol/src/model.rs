@@ -175,7 +175,6 @@ impl ContextCompilationReceipt {
 #[serde(rename_all = "snake_case")]
 pub enum ModelTransport {
     OpenAiCompatible,
-    AnthropicCompatible,
     TinkerNative,
     Deterministic,
 }
@@ -211,10 +210,7 @@ impl ModelProviderSpec {
         }
         require_nonempty(&self.provider_id, "provider id")?;
         require_nonempty(&self.model, "model")?;
-        if matches!(
-            self.transport,
-            ModelTransport::OpenAiCompatible | ModelTransport::AnthropicCompatible
-        ) {
+        if self.transport == ModelTransport::OpenAiCompatible {
             let base_url = self
                 .base_url
                 .as_deref()
