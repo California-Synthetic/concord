@@ -49,6 +49,95 @@ fn irrelevant_order_and_duplicate_set_members_do_not_change_identity() {
 }
 
 #[test]
+fn alternative_discharges_are_canonical_and_require_every_declared_authority_path() {
+    let mut source = program();
+    source
+        .authorities
+        .iter_mut()
+        .find(|grant| grant.id == "authority:operator-decide")
+        .unwrap()
+        .operations
+        .push(KernelOperation::Evaluate);
+    source
+        .obligations
+        .iter_mut()
+        .find(|obligation| obligation.id == "decide")
+        .unwrap()
+        .discharge = EpactDischarge::AnyOf {
+        alternatives: vec![
+            EpactDischarge::Evidence {
+                evidence_rule_ids: vec!["evidence:claim".to_owned()],
+            },
+            EpactDischarge::Decision {
+                decision_object_id: "object:decision".to_owned(),
+            },
+        ],
+    };
+    let expected = compile_program(source.clone()).unwrap();
+    assert!(expected.activatable);
+
+    let EpactDischarge::AnyOf { alternatives } = &mut source
+        .obligations
+        .iter_mut()
+        .find(|obligation| obligation.id == "decide")
+        .unwrap()
+        .discharge
+    else {
+        unreachable!();
+    };
+    alternatives.reverse();
+    let reordered = compile_program(source).unwrap();
+    assert_eq!(expected.program_sha256, reordered.program_sha256);
+    assert_eq!(expected.image_sha256, reordered.image_sha256);
+
+    let mut missing_evaluator = program();
+    missing_evaluator
+        .obligations
+        .iter_mut()
+        .find(|obligation| obligation.id == "decide")
+        .unwrap()
+        .discharge = EpactDischarge::AnyOf {
+        alternatives: vec![
+            EpactDischarge::Evidence {
+                evidence_rule_ids: vec!["evidence:claim".to_owned()],
+            },
+            EpactDischarge::Decision {
+                decision_object_id: "object:decision".to_owned(),
+            },
+        ],
+    };
+    let image = compile_program(missing_evaluator).unwrap();
+    assert!(!image.activatable);
+    assert!(image.activation_findings.iter().any(|finding| {
+        finding.code == "missing_operation_authority" && finding.subject_id == "decide"
+    }));
+}
+
+#[test]
+fn alternative_discharge_must_retain_at_least_two_distinct_paths() {
+    let mut source = program();
+    source
+        .obligations
+        .iter_mut()
+        .find(|obligation| obligation.id == "decide")
+        .unwrap()
+        .discharge = EpactDischarge::AnyOf {
+        alternatives: vec![
+            EpactDischarge::Decision {
+                decision_object_id: "object:decision".to_owned(),
+            },
+            EpactDischarge::Decision {
+                decision_object_id: "object:decision".to_owned(),
+            },
+        ],
+    };
+    assert!(matches!(
+        compile_program(source),
+        Err(EpactCompileError::EmptyDischarge(id)) if id == "decide"
+    ));
+}
+
+#[test]
 fn structural_reference_cycle_and_resource_failures_are_compile_errors() {
     let mut missing = program();
     missing.obligations[0].output_object_ids = vec!["object:missing".to_owned()];

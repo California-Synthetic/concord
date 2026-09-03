@@ -1,10 +1,11 @@
 use std::collections::BTreeSet;
 
 use concord_protocol::{
-    validate_epact_timestamp, CompiledAuthority, EpactDischarge, EpactEligibility,
-    EpactEligibilityBlocker, EpactObligation, EpactObligationProjection, EpactObligationState,
-    EpactOperationRequest, EpactPredicate, EpactProgramImage, EpactResourceEnvelope,
-    EpactRuntimeEvent, EpactRuntimeEventKind, EpactRuntimeState, KernelOperation,
+    validate_epact_timestamp, CompiledAuthority, EpactAcceptedReview, EpactDischarge,
+    EpactEligibility, EpactEligibilityBlocker, EpactObligation, EpactObligationProjection,
+    EpactObligationState, EpactOperationRequest, EpactPredicate, EpactProgramImage,
+    EpactResourceEnvelope, EpactRuntimeEvent, EpactRuntimeEventKind, EpactRuntimeState,
+    KernelOperation,
 };
 use epact_compiler::{require_activatable, verify_program_image};
 use thiserror::Error;
@@ -30,6 +31,7 @@ pub fn initial_epact_state(
             .collect(),
         present_object_ids: Vec::new(),
         satisfied_evidence_rule_ids: Vec::new(),
+        accepted_reviews: Vec::new(),
     })
 }
 
@@ -304,6 +306,50 @@ fn apply_event(
                 evidence_rule_id.clone(),
             );
         }
+        EpactRuntimeEventKind::ReviewAccepted {
+            obligation_id,
+            review_object_id,
+            reviewer_principal_id,
+            independent_review_receipt_sha256,
+        } => {
+            let obligation = find_obligation(image, obligation_id)?;
+            let review = find_review_discharge(&obligation.discharge, review_object_id)
+                .ok_or_else(|| EpactRuntimeError::UnknownReviewPath(obligation_id.clone()))?;
+            if !image
+                .program
+                .principals
+                .iter()
+                .any(|principal| principal.id == *reviewer_principal_id)
+            {
+                return Err(EpactRuntimeError::UnknownPrincipal(
+                    reviewer_principal_id.clone(),
+                ));
+            }
+            if review && reviewer_principal_id == &event.actor {
+                return Err(EpactRuntimeError::IndependentReviewerRequired(
+                    obligation_id.clone(),
+                ));
+            }
+            if state
+                .present_object_ids
+                .binary_search(review_object_id)
+                .is_err()
+            {
+                return Err(EpactRuntimeError::MissingDischargeObject {
+                    obligation_id: obligation_id.clone(),
+                    object_id: review_object_id.clone(),
+                });
+            }
+            insert_sorted_unique(
+                &mut state.accepted_reviews,
+                EpactAcceptedReview {
+                    obligation_id: obligation_id.clone(),
+                    review_object_id: review_object_id.clone(),
+                    reviewer_principal_id: reviewer_principal_id.clone(),
+                    independent_review_receipt_sha256: independent_review_receipt_sha256.clone(),
+                },
+            );
+        }
         EpactRuntimeEventKind::ObligationSatisfied {
             obligation_id,
             receipt_contract,
@@ -312,8 +358,7 @@ fn apply_event(
             require_obligation_pending(state, obligation_id)?;
             require_dependencies(state, obligation)?;
             require_gates(image, state, obligation)?;
-            require_discharge_objects(state, obligation)?;
-            require_discharge_evidence(state, obligation)?;
+            require_discharge(state, obligation)?;
             if receipt_contract != &obligation.terminal_receipt_contract {
                 return Err(EpactRuntimeError::ReceiptContractMismatch {
                     obligation_id: obligation_id.clone(),
@@ -392,8 +437,13 @@ fn evaluate_obligation_request(
         );
     }
 
-    if let Some(expected_capability) = obligation_capability_id(&obligation.discharge) {
-        if request.capability_id.as_deref() != Some(expected_capability) {
+    let expected_capabilities = discharge_capability_ids(&obligation.discharge, request.operation);
+    if !expected_capabilities.is_empty() {
+        if !request
+            .capability_id
+            .as_deref()
+            .is_some_and(|candidate| expected_capabilities.contains(&candidate))
+        {
             blocker(
                 blockers,
                 "capability_mismatch",
@@ -511,11 +561,38 @@ fn operation_requires_ready_obligation(operation: KernelOperation) -> bool {
     )
 }
 
-fn obligation_capability_id(discharge: &EpactDischarge) -> Option<&str> {
+fn discharge_capability_ids(
+    discharge: &EpactDischarge,
+    operation: KernelOperation,
+) -> BTreeSet<&str> {
     match discharge {
+        EpactDischarge::AnyOf { alternatives } => alternatives
+            .iter()
+            .flat_map(|alternative| discharge_capability_ids(alternative, operation))
+            .collect(),
         EpactDischarge::Capability { capability_id }
-        | EpactDischarge::Review { capability_id, .. } => Some(capability_id),
-        _ => None,
+            if matches!(
+                operation,
+                KernelOperation::Propose
+                    | KernelOperation::Authorize
+                    | KernelOperation::Reserve
+                    | KernelOperation::Dispatch
+            ) =>
+        {
+            BTreeSet::from([capability_id.as_str()])
+        }
+        EpactDischarge::Review { capability_id, .. }
+            if matches!(
+                operation,
+                KernelOperation::Propose
+                    | KernelOperation::Authorize
+                    | KernelOperation::Reserve
+                    | KernelOperation::Evaluate
+            ) =>
+        {
+            BTreeSet::from([capability_id.as_str()])
+        }
+        _ => BTreeSet::new(),
     }
 }
 
@@ -543,6 +620,7 @@ fn validate_state_shape(
     }
     if !is_sorted_unique(&state.present_object_ids)
         || !is_sorted_unique(&state.satisfied_evidence_rule_ids)
+        || !is_sorted_unique(&state.accepted_reviews)
     {
         return Err(EpactRuntimeError::InvalidState(
             "set projections must be sorted and unique",
@@ -594,55 +672,78 @@ fn require_gates(
     Ok(())
 }
 
-fn require_discharge_objects(
+fn require_discharge(
     state: &EpactRuntimeState,
     obligation: &EpactObligation,
 ) -> Result<(), EpactRuntimeError> {
-    let mut required = obligation.output_object_ids.clone();
-    match &obligation.discharge {
-        EpactDischarge::Decision { decision_object_id } => {
-            required.push(decision_object_id.clone())
-        }
-        EpactDischarge::Review {
-            review_object_id, ..
-        } => required.push(review_object_id.clone()),
-        EpactDischarge::Publication {
-            artifact_object_ids,
-        } => required.extend(artifact_object_ids.iter().cloned()),
-        _ => {}
-    }
-    required.sort();
-    required.dedup();
-    for object_id in required {
+    for object_id in &obligation.output_object_ids {
         if state.present_object_ids.binary_search(&object_id).is_err() {
             return Err(EpactRuntimeError::MissingDischargeObject {
                 obligation_id: obligation.id.clone(),
-                object_id,
+                object_id: object_id.clone(),
             });
         }
+    }
+    if !discharge_satisfied(state, &obligation.discharge, &obligation.id) {
+        return Err(EpactRuntimeError::UnsatisfiedDischarge(
+            obligation.id.clone(),
+        ));
     }
     Ok(())
 }
 
-fn require_discharge_evidence(
+fn discharge_satisfied(
     state: &EpactRuntimeState,
-    obligation: &EpactObligation,
-) -> Result<(), EpactRuntimeError> {
-    if let EpactDischarge::Evidence { evidence_rule_ids } = &obligation.discharge {
-        for rule_id in evidence_rule_ids {
-            if state
+    discharge: &EpactDischarge,
+    obligation_id: &str,
+) -> bool {
+    match discharge {
+        EpactDischarge::AnyOf { alternatives } => alternatives
+            .iter()
+            .any(|alternative| discharge_satisfied(state, alternative, obligation_id)),
+        EpactDischarge::Capability { .. } => true,
+        EpactDischarge::Decision { decision_object_id } => state
+            .present_object_ids
+            .binary_search(decision_object_id)
+            .is_ok(),
+        EpactDischarge::Evidence { evidence_rule_ids } => evidence_rule_ids.iter().all(|rule_id| {
+            state
                 .satisfied_evidence_rule_ids
                 .binary_search(rule_id)
-                .is_err()
-            {
-                return Err(EpactRuntimeError::UnsatisfiedEvidence {
-                    obligation_id: obligation.id.clone(),
-                    evidence_rule_id: rule_id.clone(),
-                });
-            }
+                .is_ok()
+        }),
+        EpactDischarge::Review {
+            review_object_id, ..
+        } => {
+            state
+                .present_object_ids
+                .binary_search(review_object_id)
+                .is_ok()
+                && state.accepted_reviews.iter().any(|accepted| {
+                    accepted.obligation_id == obligation_id
+                        && accepted.review_object_id == *review_object_id
+                })
         }
+        EpactDischarge::Publication {
+            artifact_object_ids,
+        } => artifact_object_ids
+            .iter()
+            .all(|object_id| state.present_object_ids.binary_search(object_id).is_ok()),
     }
-    Ok(())
+}
+
+fn find_review_discharge(discharge: &EpactDischarge, review_object_id: &str) -> Option<bool> {
+    match discharge {
+        EpactDischarge::AnyOf { alternatives } => alternatives
+            .iter()
+            .find_map(|alternative| find_review_discharge(alternative, review_object_id)),
+        EpactDischarge::Review {
+            review_object_id: expected,
+            independent_principal_required,
+            ..
+        } if expected == review_object_id => Some(*independent_principal_required),
+        _ => None,
+    }
 }
 
 fn gate_satisfied(image: &EpactProgramImage, state: &EpactRuntimeState, gate_id: &str) -> bool {
@@ -715,14 +816,14 @@ fn set_terminal_state(
     Ok(())
 }
 
-fn insert_sorted_unique(values: &mut Vec<String>, value: String) {
+fn insert_sorted_unique<T: Ord>(values: &mut Vec<T>, value: T) {
     match values.binary_search(&value) {
         Ok(_) => {}
         Err(index) => values.insert(index, value),
     }
 }
 
-fn is_sorted_unique(values: &[String]) -> bool {
+fn is_sorted_unique<T: Ord>(values: &[T]) -> bool {
     values.windows(2).all(|window| window[0] < window[1])
 }
 
@@ -763,10 +864,14 @@ pub enum EpactRuntimeError {
     UnknownEvidenceRule(String),
     #[error("unknown obligation {0}")]
     UnknownObligation(String),
+    #[error("obligation {0} does not declare the accepted review path")]
+    UnknownReviewPath(String),
     #[error("evidence rule {0} has too few recorded observations")]
     InsufficientEvidence(String),
     #[error("evidence rule {0} requires an independent-review receipt")]
     IndependentReviewRequired(String),
+    #[error("obligation {0} requires a reviewer distinct from the accepting actor")]
+    IndependentReviewerRequired(String),
     #[error("obligation {0} already reached a terminal state")]
     ObligationAlreadyTerminal(String),
     #[error("obligation {obligation_id} requires unsatisfied dependency {dependency_id}")]
@@ -789,6 +894,8 @@ pub enum EpactRuntimeError {
         obligation_id: String,
         evidence_rule_id: String,
     },
+    #[error("obligation {0} has no satisfied discharge alternative")]
+    UnsatisfiedDischarge(String),
     #[error("obligation {obligation_id} requires receipt contract {expected}, found {actual}")]
     ReceiptContractMismatch {
         obligation_id: String,

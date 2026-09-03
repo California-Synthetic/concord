@@ -227,6 +227,11 @@ pub struct EpactAuthorityGrant {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum EpactDischarge {
+    /// A finite set of independently sufficient discharge paths. Effects and resources remain
+    /// declared on the enclosing obligation and therefore bind every alternative conservatively.
+    AnyOf {
+        alternatives: Vec<EpactDischarge>,
+    },
     Capability {
         capability_id: String,
     },
@@ -434,6 +439,12 @@ pub enum EpactRuntimeEventKind {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         independent_review_receipt_sha256: Option<String>,
     },
+    ReviewAccepted {
+        obligation_id: String,
+        review_object_id: String,
+        reviewer_principal_id: String,
+        independent_review_receipt_sha256: String,
+    },
     ObligationSatisfied {
         obligation_id: String,
         receipt_contract: String,
@@ -551,6 +562,23 @@ impl EpactRuntimeEvent {
                     require_event_sha256("independent review receipt hash", value)?;
                 }
             }
+            EpactRuntimeEventKind::ReviewAccepted {
+                obligation_id,
+                review_object_id,
+                reviewer_principal_id,
+                independent_review_receipt_sha256,
+            } => {
+                require_event_text("obligation id", obligation_id)?;
+                require_event_text("review object id", review_object_id)?;
+                require_event_text("reviewer principal id", reviewer_principal_id)?;
+                require_event_sha256(
+                    "independent review receipt hash",
+                    independent_review_receipt_sha256,
+                )?;
+                if self.receipt_sha256.is_none() {
+                    return Err(EpactRuntimeEventError::MissingReceipt);
+                }
+            }
             EpactRuntimeEventKind::ObligationSatisfied {
                 obligation_id,
                 receipt_contract,
@@ -598,6 +626,15 @@ pub struct EpactObligationProjection {
     pub terminal_event_sha256: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EpactAcceptedReview {
+    pub obligation_id: String,
+    pub review_object_id: String,
+    pub reviewer_principal_id: String,
+    pub independent_review_receipt_sha256: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EpactRuntimeState {
@@ -610,6 +647,8 @@ pub struct EpactRuntimeState {
     pub present_object_ids: Vec<String>,
     #[serde(default)]
     pub satisfied_evidence_rule_ids: Vec<String>,
+    #[serde(default)]
+    pub accepted_reviews: Vec<EpactAcceptedReview>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

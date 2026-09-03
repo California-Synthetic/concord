@@ -200,13 +200,7 @@ fn normalize_program(program: &mut EpactProgram) -> Result<(), EpactCompileError
         sort_dedup(&mut obligation.output_object_ids);
         obligation.effects.sort();
         obligation.effects.dedup();
-        match &mut obligation.discharge {
-            EpactDischarge::Evidence { evidence_rule_ids } => sort_dedup(evidence_rule_ids),
-            EpactDischarge::Publication {
-                artifact_object_ids,
-            } => sort_dedup(artifact_object_ids),
-            _ => {}
-        }
+        normalize_discharge(&mut obligation.discharge)?;
     }
     for gate in &mut program.gates {
         normalize_predicate(&mut gate.predicate)?;
@@ -218,6 +212,32 @@ fn normalize_program(program: &mut EpactProgram) -> Result<(), EpactCompileError
     sort_dedup(&mut program.terminal.required_obligation_ids);
     sort_dedup(&mut program.terminal.required_object_ids);
     sort_dedup(&mut program.terminal.required_receipt_contracts);
+    Ok(())
+}
+
+fn normalize_discharge(discharge: &mut EpactDischarge) -> Result<(), EpactCompileError> {
+    match discharge {
+        EpactDischarge::AnyOf { alternatives } => {
+            for alternative in alternatives.iter_mut() {
+                normalize_discharge(alternative)?;
+            }
+            let mut keyed = alternatives
+                .drain(..)
+                .map(|alternative| Ok((serde_json::to_string(&alternative)?, alternative)))
+                .collect::<Result<Vec<_>, EpactCompileError>>()?;
+            keyed.sort_by(|left, right| left.0.cmp(&right.0));
+            keyed.dedup_by(|left, right| left.0 == right.0);
+            *alternatives = keyed
+                .into_iter()
+                .map(|(_, alternative)| alternative)
+                .collect();
+        }
+        EpactDischarge::Evidence { evidence_rule_ids } => sort_dedup(evidence_rule_ids),
+        EpactDischarge::Publication {
+            artifact_object_ids,
+        } => sort_dedup(artifact_object_ids),
+        _ => {}
+    }
     Ok(())
 }
 
@@ -444,54 +464,15 @@ fn validate_program(program: &EpactProgram) -> Result<(), EpactCompileError> {
                     })?;
             }
         }
-        match &obligation.discharge {
-            EpactDischarge::Capability { capability_id } => validate_capability_discharge(
-                &obligation.id,
-                capability_id,
-                &obligation.effects,
-                &capability_map,
-            )?,
-            EpactDischarge::Decision { decision_object_id } => require_ref(
-                "decision object",
-                decision_object_id,
-                &objects,
-                &obligation.id,
-            )?,
-            EpactDischarge::Evidence {
-                evidence_rule_ids: rules,
-            } => {
-                if rules.is_empty() {
-                    return Err(EpactCompileError::EmptyDischarge(obligation.id.clone()));
-                }
-                require_refs("evidence rule", rules, &evidence_rules, &obligation.id)?;
-            }
-            EpactDischarge::Review {
-                capability_id,
-                review_object_id,
-                ..
-            } => {
-                validate_capability_discharge(
-                    &obligation.id,
-                    capability_id,
-                    &obligation.effects,
-                    &capability_map,
-                )?;
-                require_ref("review object", review_object_id, &objects, &obligation.id)?;
-            }
-            EpactDischarge::Publication {
-                artifact_object_ids,
-            } => {
-                if artifact_object_ids.is_empty() {
-                    return Err(EpactCompileError::EmptyDischarge(obligation.id.clone()));
-                }
-                require_refs(
-                    "publication artifact",
-                    artifact_object_ids,
-                    &objects,
-                    &obligation.id,
-                )?;
-            }
-        }
+        validate_discharge(
+            &obligation.id,
+            &obligation.discharge,
+            &obligation.effects,
+            &capability_map,
+            &objects,
+            &evidence_rules,
+            0,
+        )?;
     }
     for gate in &program.gates {
         require_text("gate id", &gate.id, 240)?;
@@ -592,25 +573,33 @@ fn activation_findings(program: &EpactProgram) -> Vec<EpactCompilerFinding> {
         }
     }
     for obligation in &program.obligations {
-        require_operation_finding(program, obligation, KernelOperation::Propose, &mut findings);
-        let operation = match obligation.discharge {
-            EpactDischarge::Capability { .. } => KernelOperation::Dispatch,
-            EpactDischarge::Decision { .. } => KernelOperation::Decide,
-            EpactDischarge::Evidence { .. } => KernelOperation::Evaluate,
-            EpactDischarge::Review { .. } => KernelOperation::Evaluate,
-            EpactDischarge::Publication { .. } => KernelOperation::Publish,
-        };
-        require_operation_finding(program, obligation, operation, &mut findings);
+        require_operation_finding(
+            program,
+            obligation,
+            KernelOperation::Propose,
+            None,
+            &mut findings,
+        );
+        for (operation, capability_id) in discharge_authority_paths(&obligation.discharge) {
+            require_operation_finding(program, obligation, operation, capability_id, &mut findings);
+        }
         if !obligation.effects.is_empty() {
             require_operation_finding(
                 program,
                 obligation,
                 KernelOperation::Authorize,
+                None,
                 &mut findings,
             );
         }
         if consumes_resources(&obligation.resources) {
-            require_operation_finding(program, obligation, KernelOperation::Reserve, &mut findings);
+            require_operation_finding(
+                program,
+                obligation,
+                KernelOperation::Reserve,
+                None,
+                &mut findings,
+            );
         }
     }
     for principal_id in &program.amendment_policy.authorized_principal_ids {
@@ -641,9 +630,9 @@ fn require_operation_finding(
     program: &EpactProgram,
     obligation: &concord_protocol::EpactObligation,
     operation: KernelOperation,
+    capability_id: Option<&str>,
     findings: &mut Vec<EpactCompilerFinding>,
 ) {
-    let capability_id = obligation_capability_id(&obligation.discharge);
     if !program.authorities.iter().any(|grant| {
         grant.operations.contains(&operation)
             && authority_applies(grant, &obligation.id, capability_id)
@@ -681,11 +670,26 @@ fn authority_applies(
         })
 }
 
-fn obligation_capability_id(discharge: &EpactDischarge) -> Option<&str> {
+fn discharge_authority_paths(discharge: &EpactDischarge) -> Vec<(KernelOperation, Option<&str>)> {
     match discharge {
-        EpactDischarge::Capability { capability_id }
-        | EpactDischarge::Review { capability_id, .. } => Some(capability_id),
-        _ => None,
+        EpactDischarge::AnyOf { alternatives } => alternatives
+            .iter()
+            .flat_map(discharge_authority_paths)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect(),
+        EpactDischarge::Capability { capability_id } => {
+            vec![(KernelOperation::Dispatch, Some(capability_id))]
+        }
+        EpactDischarge::Decision { .. } => vec![(KernelOperation::Decide, None)],
+        EpactDischarge::Evidence { .. } | EpactDischarge::Review { .. } => {
+            let capability_id = match discharge {
+                EpactDischarge::Review { capability_id, .. } => Some(capability_id.as_str()),
+                _ => None,
+            };
+            vec![(KernelOperation::Evaluate, capability_id)]
+        }
+        EpactDischarge::Publication { .. } => vec![(KernelOperation::Publish, None)],
     }
 }
 
@@ -800,6 +804,88 @@ fn collect_predicate_obligations(predicate: &EpactPredicate, output: &mut BTreeS
         }
         _ => {}
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_discharge(
+    obligation_id: &str,
+    discharge: &EpactDischarge,
+    obligation_effects: &[EffectClass],
+    capabilities: &BTreeMap<&str, &concord_protocol::EpactCapabilityRequirement>,
+    objects: &BTreeSet<&str>,
+    evidence_rules: &BTreeSet<&str>,
+    depth: usize,
+) -> Result<(), EpactCompileError> {
+    if depth > 16 {
+        return Err(EpactCompileError::DischargeTooDeep(
+            obligation_id.to_owned(),
+        ));
+    }
+    match discharge {
+        EpactDischarge::AnyOf { alternatives } => {
+            if alternatives.len() < 2 {
+                return Err(EpactCompileError::EmptyDischarge(obligation_id.to_owned()));
+            }
+            for alternative in alternatives {
+                validate_discharge(
+                    obligation_id,
+                    alternative,
+                    obligation_effects,
+                    capabilities,
+                    objects,
+                    evidence_rules,
+                    depth + 1,
+                )?;
+            }
+        }
+        EpactDischarge::Capability { capability_id } => validate_capability_discharge(
+            obligation_id,
+            capability_id,
+            obligation_effects,
+            capabilities,
+        )?,
+        EpactDischarge::Decision { decision_object_id } => require_ref(
+            "decision object",
+            decision_object_id,
+            objects,
+            obligation_id,
+        )?,
+        EpactDischarge::Evidence {
+            evidence_rule_ids: rules,
+        } => {
+            if rules.is_empty() {
+                return Err(EpactCompileError::EmptyDischarge(obligation_id.to_owned()));
+            }
+            require_refs("evidence rule", rules, evidence_rules, obligation_id)?;
+        }
+        EpactDischarge::Review {
+            capability_id,
+            review_object_id,
+            ..
+        } => {
+            validate_capability_discharge(
+                obligation_id,
+                capability_id,
+                obligation_effects,
+                capabilities,
+            )?;
+            require_ref("review object", review_object_id, objects, obligation_id)?;
+        }
+        EpactDischarge::Publication {
+            artifact_object_ids,
+        } => {
+            if artifact_object_ids.is_empty() {
+                return Err(EpactCompileError::EmptyDischarge(obligation_id.to_owned()));
+            }
+            require_refs(
+                "publication artifact",
+                artifact_object_ids,
+                objects,
+                obligation_id,
+            )?;
+        }
+    }
+    Ok(())
 }
 
 fn validate_capability_discharge(
@@ -1085,6 +1171,8 @@ pub enum EpactCompileError {
     ResourceCeilingExceeded(String),
     #[error("obligation {0} has an empty discharge requirement")]
     EmptyDischarge(String),
+    #[error("obligation {0} discharge exceeds 16 levels")]
+    DischargeTooDeep(String),
     #[error("obligation {0} does not declare all effects required by its capability")]
     CapabilityEffectMismatch(String),
     #[error("obligation {obligation_id} has invalid reversibility: {message}")]

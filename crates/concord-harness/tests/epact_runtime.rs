@@ -4,10 +4,10 @@ use concord_harness::{
 };
 use concord_protocol::{
     EffectClass, EpactAmendmentPolicy, EpactAuthorityGrant, EpactAuthorityScope,
-    EpactCapabilityRequirement, EpactDischarge, EpactObjectDeclaration, EpactObligation,
-    EpactPrincipal, EpactProgram, EpactResourceEnvelope, EpactRuntimeEvent, EpactRuntimeEventKind,
-    EpactTerminalRule, KernelOperation, PrincipalKind, ProgramLifecycle, ReversibilityClass,
-    ReversibilityPolicy, EPACT_PROGRAM_CONTRACT,
+    EpactCapabilityRequirement, EpactDischarge, EpactEvidenceRule, EpactObjectDeclaration,
+    EpactObligation, EpactPrincipal, EpactProgram, EpactResourceEnvelope, EpactRuntimeEvent,
+    EpactRuntimeEventKind, EpactTerminalRule, KernelOperation, PrincipalKind, ProgramLifecycle,
+    ReversibilityClass, ReversibilityPolicy, EPACT_PROGRAM_CONTRACT,
 };
 
 const DIGEST: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -229,9 +229,227 @@ fn authority_is_ineligible_outside_its_compiled_time_window() {
         .any(|blocker| blocker.code == "authority_denied"));
 }
 
+#[test]
+fn any_of_discharge_accepts_evidence_or_an_explicit_decision_but_not_neither() {
+    let mut source = program();
+    source.objects.extend([
+        object("object:claim", "concord.claim/1"),
+        object("object:evidence", "concord.observation/1"),
+        object("object:waiver", "concord.decision/1"),
+    ]);
+    source.evidence_rules.push(EpactEvidenceRule {
+        id: "evidence:analysis".to_owned(),
+        claim_object_id: "object:claim".to_owned(),
+        evidence_object_ids: vec!["object:evidence".to_owned()],
+        evaluator_capability_id: None,
+        minimum_observations: 1,
+        independent_review_required: false,
+    });
+    source
+        .authorities
+        .iter_mut()
+        .find(|grant| grant.principal_id == "principal:operator" && !grant.scope.whole_program)
+        .unwrap()
+        .operations
+        .extend([KernelOperation::Evaluate, KernelOperation::Decide]);
+    source.obligations[0].discharge = EpactDischarge::AnyOf {
+        alternatives: vec![
+            EpactDischarge::Evidence {
+                evidence_rule_ids: vec!["evidence:analysis".to_owned()],
+            },
+            EpactDischarge::Decision {
+                decision_object_id: "object:waiver".to_owned(),
+            },
+        ],
+    };
+    let image = compile_epact_program(source).unwrap();
+
+    let mut neither = Vec::new();
+    push_event(
+        &image.image_sha256,
+        &mut neither,
+        EpactRuntimeEventKind::ObjectRecorded {
+            object_id: "object:result".to_owned(),
+        },
+        Some(DIGEST),
+    );
+    push_event(
+        &image.image_sha256,
+        &mut neither,
+        EpactRuntimeEventKind::ObligationSatisfied {
+            obligation_id: "analyze".to_owned(),
+            receipt_contract: "example.analysis-receipt/1".to_owned(),
+        },
+        Some(DIGEST),
+    );
+    assert!(matches!(
+        replay_epact_events(&image, &neither),
+        Err(EpactRuntimeError::UnsatisfiedDischarge(id)) if id == "analyze"
+    ));
+
+    let mut decision_path = neither[..1].to_vec();
+    push_event(
+        &image.image_sha256,
+        &mut decision_path,
+        EpactRuntimeEventKind::ObjectRecorded {
+            object_id: "object:waiver".to_owned(),
+        },
+        Some(DIGEST),
+    );
+    push_event(
+        &image.image_sha256,
+        &mut decision_path,
+        EpactRuntimeEventKind::ObligationSatisfied {
+            obligation_id: "analyze".to_owned(),
+            receipt_contract: "example.analysis-receipt/1".to_owned(),
+        },
+        Some(DIGEST),
+    );
+    assert_eq!(
+        replay_epact_events(&image, &decision_path)
+            .unwrap()
+            .obligations[0]
+            .state,
+        concord_protocol::EpactObligationState::Satisfied
+    );
+
+    let mut evidence_path = neither[..1].to_vec();
+    push_event(
+        &image.image_sha256,
+        &mut evidence_path,
+        EpactRuntimeEventKind::ObjectRecorded {
+            object_id: "object:evidence".to_owned(),
+        },
+        Some(DIGEST),
+    );
+    push_event(
+        &image.image_sha256,
+        &mut evidence_path,
+        EpactRuntimeEventKind::EvidenceAccepted {
+            evidence_rule_id: "evidence:analysis".to_owned(),
+            independent_review_receipt_sha256: None,
+        },
+        Some(DIGEST),
+    );
+    push_event(
+        &image.image_sha256,
+        &mut evidence_path,
+        EpactRuntimeEventKind::ObligationSatisfied {
+            obligation_id: "analyze".to_owned(),
+            receipt_contract: "example.analysis-receipt/1".to_owned(),
+        },
+        Some(DIGEST),
+    );
+    assert_eq!(
+        replay_epact_events(&image, &evidence_path)
+            .unwrap()
+            .obligations[0]
+            .state,
+        concord_protocol::EpactObligationState::Satisfied
+    );
+}
+
+#[test]
+fn review_discharge_requires_a_recorded_artifact_and_distinct_reviewer() {
+    let mut source = program();
+    source
+        .objects
+        .push(object("object:review", "concord.review/1"));
+    source.capabilities.push(EpactCapabilityRequirement {
+        id: "capability:review".to_owned(),
+        capability_type: "independent_review".to_owned(),
+        contract: "concord.review/1".to_owned(),
+        required_effects: vec![EffectClass::ReadOnly],
+        required_data_classes: vec![],
+    });
+    source
+        .authorities
+        .iter_mut()
+        .find(|grant| grant.principal_id == "principal:operator" && !grant.scope.whole_program)
+        .unwrap()
+        .operations
+        .push(KernelOperation::Evaluate);
+    source.obligations[0].discharge = EpactDischarge::Review {
+        capability_id: "capability:review".to_owned(),
+        review_object_id: "object:review".to_owned(),
+        independent_principal_required: true,
+    };
+    let image = compile_epact_program(source).unwrap();
+    let mut events = Vec::new();
+    for object_id in ["object:result", "object:review"] {
+        push_event(
+            &image.image_sha256,
+            &mut events,
+            EpactRuntimeEventKind::ObjectRecorded {
+                object_id: object_id.to_owned(),
+            },
+            Some(DIGEST),
+        );
+    }
+    push_event_as(
+        &image.image_sha256,
+        &mut events,
+        "principal:operator",
+        EpactRuntimeEventKind::ReviewAccepted {
+            obligation_id: "analyze".to_owned(),
+            review_object_id: "object:review".to_owned(),
+            reviewer_principal_id: "principal:operator".to_owned(),
+            independent_review_receipt_sha256: DIGEST.to_owned(),
+        },
+        Some(DIGEST),
+    );
+    assert!(matches!(
+        replay_epact_events(&image, &events),
+        Err(EpactRuntimeError::IndependentReviewerRequired(id)) if id == "analyze"
+    ));
+
+    events.pop();
+    push_event_as(
+        &image.image_sha256,
+        &mut events,
+        "principal:operator",
+        EpactRuntimeEventKind::ReviewAccepted {
+            obligation_id: "analyze".to_owned(),
+            review_object_id: "object:review".to_owned(),
+            reviewer_principal_id: "principal:agent".to_owned(),
+            independent_review_receipt_sha256: DIGEST.to_owned(),
+        },
+        Some(DIGEST),
+    );
+    push_event(
+        &image.image_sha256,
+        &mut events,
+        EpactRuntimeEventKind::ObligationSatisfied {
+            obligation_id: "analyze".to_owned(),
+            receipt_contract: "example.analysis-receipt/1".to_owned(),
+        },
+        Some(DIGEST),
+    );
+    assert_eq!(
+        replay_epact_events(&image, &events).unwrap().obligations[0].state,
+        concord_protocol::EpactObligationState::Satisfied
+    );
+}
+
 fn push_event(
     image_sha256: &str,
     events: &mut Vec<EpactRuntimeEvent>,
+    kind: EpactRuntimeEventKind,
+    receipt_sha256: Option<&str>,
+) {
+    push_event_as(
+        image_sha256,
+        events,
+        "principal:operator",
+        kind,
+        receipt_sha256,
+    );
+}
+
+fn push_event_as(
+    image_sha256: &str,
+    events: &mut Vec<EpactRuntimeEvent>,
+    actor: &str,
     kind: EpactRuntimeEventKind,
     receipt_sha256: Option<&str>,
 ) {
@@ -242,7 +460,7 @@ fn push_event(
             format!("event:{sequence}"),
             image_sha256.to_owned(),
             sequence,
-            "principal:operator".to_owned(),
+            actor.to_owned(),
             format!("idempotency:{sequence}"),
             kind,
             receipt_sha256.map(str::to_owned),
