@@ -1,4 +1,5 @@
 mod project_inputs;
+mod research_execution;
 
 use crate::agent_runtime::*;
 use crate::campaign_supervision::*;
@@ -2943,7 +2944,7 @@ impl Database {
         request: CreateResearchPlanRequest,
     ) -> Result<ResearchPlanEnvelope> {
         let mut connection = self.connect()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let campaign_exists: bool = transaction.query_row(
             "SELECT EXISTS(SELECT 1 FROM campaigns WHERE id=?1)",
             params![campaign_id],
@@ -2968,6 +2969,7 @@ impl Database {
             previous_plan_sha256,
             now.clone(),
         )?;
+        research_execution::validate_execution_bindings(&transaction, &plan)?;
         transaction.execute(
             r#"INSERT INTO research_plan_versions
             (id,campaign_id,version,plan_sha256,previous_plan_sha256,plan_json,created_at)
@@ -2999,7 +3001,7 @@ impl Database {
         rationale: &str,
     ) -> Result<ResearchPlanEnvelope> {
         let mut connection = self.connect()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let raw: String = transaction
             .query_row(
                 "SELECT plan_json FROM research_plan_versions WHERE id=?1 AND campaign_id=?2",
@@ -3009,6 +3011,9 @@ impl Database {
             .context("research plan does not exist in this campaign")?;
         let plan: ResearchPlanVersion = serde_json::from_str(&raw)?;
         plan.validate()?;
+        if decision == ResearchPlanDecisionKind::Approved {
+            research_execution::validate_execution_bindings(&transaction, &plan)?;
+        }
         let latest_plan_id: String = transaction.query_row(
             "SELECT id FROM research_plan_versions WHERE campaign_id=?1 ORDER BY version DESC LIMIT 1",
             params![campaign_id],
@@ -3079,7 +3084,7 @@ impl Database {
     ) -> Result<ResearchPhaseDispatch> {
         anyhow::ensure!(!actor.trim().is_empty(), "dispatch actor is required");
         let mut connection = self.connect()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let raw: String = transaction
             .query_row(
                 "SELECT plan_json FROM research_plan_versions WHERE id=?1 AND campaign_id=?2",
@@ -3115,6 +3120,7 @@ impl Database {
             existing.validate()?;
             return Ok(existing);
         }
+        research_execution::validate_execution_bindings(&transaction, &plan)?;
         let phase = plan
             .phases
             .iter()
@@ -3168,6 +3174,7 @@ impl Database {
                 "executionEnabled": false,
                 "message": "Coordinator identity records common parentage; children remain independently advanced and approval gated."
             }),
+            phase.tasks.iter().find_map(|task| task.execution.as_ref()),
             &now,
         )?;
         let mut children = Vec::with_capacity(phase.tasks.len());
@@ -3181,7 +3188,10 @@ impl Database {
                     max_model_calls: task.max_model_calls,
                     max_tool_calls: task.max_tool_calls,
                     max_elapsed_seconds: task.max_elapsed_seconds,
-                    budget_id: None,
+                    budget_id: task
+                        .execution
+                        .as_ref()
+                        .and_then(|execution| execution.budget_id.clone()),
                     max_cost_usd: Some(task.max_cost_usd),
                 },
                 Some(coordinator.id.clone()),
@@ -3193,6 +3203,7 @@ impl Database {
                     "deterministicFixture": task.deterministic_fixture,
                     "executionEnabled": true
                 }),
+                task.execution.as_ref(),
                 &now,
             )?;
             children.push(ResearchPhaseDispatchChild {
@@ -6243,16 +6254,23 @@ fn insert_research_agent_tx(
     parent_run_id: Option<String>,
     parent_event_hash: Option<String>,
     brief_payload: Value,
+    execution: Option<&ResearchTaskExecution>,
     created_at: &str,
 ) -> Result<(AgentRun, AgentEvent)> {
     let request = CreateAgentRunRequest {
         campaign_id: campaign_id.to_owned(),
-        provider_id: "concord-deterministic".to_owned(),
-        model: Some("concord-deterministic-v1".to_owned()),
+        provider_id: execution
+            .map_or("concord-deterministic", |execution| &execution.provider_id)
+            .to_owned(),
+        model: Some(
+            execution
+                .map_or("concord-deterministic-v1", |execution| &execution.model)
+                .to_owned(),
+        ),
         task,
         allowed_tools,
         budget,
-        epact: None,
+        epact: execution.and_then(|execution| execution.epact.clone()),
         parent_run_id,
         parent_event_hash,
     };
@@ -6264,24 +6282,24 @@ fn insert_research_agent_tx(
         &request.budget,
     )?;
     anyhow::ensure!(
-        request.budget.max_cost_usd == Some(0.0),
+        execution.is_some() || request.budget.max_cost_usd == Some(0.0),
         "research rehearsal dispatch must remain zero-spend"
     );
     let provider_exists: bool = transaction.query_row(
-        "SELECT EXISTS(SELECT 1 FROM provider_profiles WHERE id='concord-deterministic')",
-        [],
+        "SELECT EXISTS(SELECT 1 FROM provider_profiles WHERE id=?1)",
+        [&request.provider_id],
         |row| row.get(0),
     )?;
     anyhow::ensure!(
         provider_exists,
-        "deterministic fixture provider is unavailable"
+        "research execution provider is unavailable"
     );
     let run = AgentRun {
         contract: AGENT_RUN_CONTRACT.to_owned(),
         id: format!("agent_{}", Uuid::new_v4().simple()),
         campaign_id: request.campaign_id.clone(),
         provider_id: request.provider_id.clone(),
-        model: "concord-deterministic-v1".to_owned(),
+        model: request.model.clone().context("research model missing")?,
         task: request.task.clone(),
         allowed_tools: request.allowed_tools.clone(),
         budget: request.budget.clone(),
@@ -6296,6 +6314,7 @@ fn insert_research_agent_tx(
         updated_at: created_at.to_owned(),
     };
     insert_agent_run_tx(transaction, &run)?;
+    ensure_agent_fork_budget_reservation_tx(transaction, &run, created_at)?;
     let event = AgentEvent::build(
         format!("agent_event_{}", Uuid::new_v4().simple()),
         run.id.clone(),
@@ -7422,7 +7441,7 @@ mod tests {
         std::fs::remove_file(database_path).unwrap();
     }
 
-    fn note_test_database() -> (Database, PathBuf) {
+    pub(super) fn note_test_database() -> (Database, PathBuf) {
         let path = std::env::temp_dir().join(format!(
             "concord-note-test-{}.sqlite",
             Uuid::new_v4().simple()
@@ -8017,7 +8036,7 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
 
-    fn research_plan_request(objective: &str) -> CreateResearchPlanRequest {
+    pub(super) fn research_plan_request(objective: &str) -> CreateResearchPlanRequest {
         CreateResearchPlanRequest {
             objective: objective.to_owned(),
             confidence: 0.8,
@@ -8046,6 +8065,7 @@ mod tests {
                     max_elapsed_seconds: 60,
                     max_cost_usd: 0.0,
                     deterministic_fixture: true,
+                    execution: None,
                 }],
             }],
             created_by: "test-primary".into(),

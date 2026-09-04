@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use concord_protocol::EpactAgentBinding;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -7,6 +8,25 @@ use std::collections::HashSet;
 pub const RESEARCH_PLAN_CONTRACT: &str = "concord.research-plan/1";
 pub const RESEARCH_PLAN_DECISION_CONTRACT: &str = "concord.research-plan-decision/1";
 pub const RESEARCH_PHASE_DISPATCH_CONTRACT: &str = "concord.research-phase-dispatch/1";
+
+/// Provider and exact input choices frozen into the plan before its independent approval.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchTaskExecution {
+    pub provider_id: String,
+    pub model: String,
+    pub budget_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epact: Option<EpactAgentBinding>,
+    pub input_versions: Vec<ResearchInputBinding>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResearchInputBinding {
+    pub input_id: String,
+    pub record_sha256: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +50,9 @@ pub struct ResearchPlanTask {
     pub max_cost_usd: f64,
     #[serde(default)]
     pub deterministic_fixture: bool,
+    // Omission preserves the hashes of historical fixture plans.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution: Option<ResearchTaskExecution>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -225,6 +248,32 @@ impl ResearchPlanVersion {
                 for dependency in &task.depends_on {
                     if !prior_task_ids.contains(dependency.as_str()) {
                         bail!("task dependencies must refer to a task in an earlier phase");
+                    }
+                }
+                if let Some(execution) = &task.execution {
+                    if task.deterministic_fixture
+                        || execution.provider_id.trim().is_empty()
+                        || execution.model.trim().is_empty()
+                        || execution
+                            .budget_id
+                            .as_deref()
+                            .is_some_and(|id| id.trim().is_empty())
+                        || (task.max_cost_usd > 0.0 && execution.budget_id.is_none())
+                    {
+                        bail!("ordinary research execution requires a provider, model and explicit paid budget; fixtures cannot carry an ordinary execution binding");
+                    }
+                    let mut ids = HashSet::new();
+                    for input in &execution.input_versions {
+                        if input.input_id.trim().is_empty()
+                            || !ids.insert(&input.input_id)
+                            || input.record_sha256.len() != 64
+                            || !input
+                                .record_sha256
+                                .bytes()
+                                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                        {
+                            bail!("research input bindings require unique identities and lowercase SHA-256 hashes");
+                        }
                     }
                 }
                 validate_nonempty_unique(&task.input_scope, "task input scope")?;
@@ -535,6 +584,7 @@ mod tests {
                     max_elapsed_seconds: 300,
                     max_cost_usd: 0.0,
                     deterministic_fixture: true,
+                    execution: None,
                 }],
             }],
             created_by: "primary".into(),

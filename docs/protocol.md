@@ -143,3 +143,26 @@ Campaign archives include the input records and corresponding artifact metadata.
 remain in the artifact store: this addition alone is not a self-contained transfer format. Transport
 adapters choose file-size, folder traversal, and media-preview limits; they must explain those limits
 and preserve per-file failures when an attachment batch is only partially accepted.
+
+### Ordinary research execution bindings
+
+A research task may freeze `execution` with a provider ID, exact model, budget account, optional Epact
+agent binding, and exact `{inputId, recordSha256}` input versions. This optional hash-covered field is
+omitted for historical fixture plans, preserving their recorded hashes. New ordinary tasks require
+it; historical unbound ordinary plans remain readable but must be amended before new authorization
+or dispatch. Ordinary tasks cannot select a declared fixture or deterministic transport.
+
+Plan recording and approval validate project ownership and input hashes. Phase dispatch creates the
+coordinator, children, frozen briefs and all spend reservations atomically. Paid tasks require an
+explicit account; there is no default-account selection in this path. A repeated phase dispatch
+returns its receipt without reserving again. Dispatch does not itself invoke a model. The disabled
+coordinator records lineage and does not incur inference spend. Actual effects retain the existing
+Epact, supervision, dispatch and tool-approval paths. Withdrawal remains possible when a provider is
+unavailable and prevents new phase dispatch; it does not cancel previously created children.
+
+`Database::project_input_for_agent` resolves a project input against any inherited plan scope.
+Continuation forks retain that scope. A newer version of the same logical file requires a new plan
+binding; an approved task does not silently switch to it. This resolution precedes separately
+approved byte reads; the product still owns local byte access and verifies content against the
+accepted input record. Provider readiness and budget availability are checked again at dispatch;
+plan approval cannot guarantee that either remains available later.
