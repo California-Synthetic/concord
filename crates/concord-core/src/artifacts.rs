@@ -144,7 +144,11 @@ fn safe_suffix(source: &Path) -> String {
         .unwrap_or_else(|| "bin".to_owned())
 }
 
-fn verify_existing_artifact(path: &Path, expected_digest: &str, expected_size: u64) -> Result<()> {
+pub(crate) fn verify_existing_artifact(
+    path: &Path,
+    expected_digest: &str,
+    expected_size: u64,
+) -> Result<()> {
     let metadata = fs::metadata(path)?;
     ensure!(
         metadata.is_file() && metadata.len() == expected_size,

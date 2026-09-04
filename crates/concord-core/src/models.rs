@@ -755,6 +755,8 @@ pub struct ReplayCampaignRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CampaignArchive {
+    #[serde(default)]
+    pub project_inputs: Vec<crate::project_inputs::ProjectInputVersion>,
     pub schema_version: String,
     pub exported_at: String,
     pub campaign: Campaign,

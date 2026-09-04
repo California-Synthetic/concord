@@ -124,3 +124,22 @@ provider connection.
 The `/1` contract identifiers are wire commitments. Compatible additions must be optional and must
 preserve existing validation. A change that alters the meaning of an existing field, hash input, or
 transition requires a new contract identifier and parallel conformance fixtures.
+
+## Researcher input versions
+
+`concord-core` owns `concord.project-input/1`. `Database::attach_project_input` verifies the stored
+bytes against their SHA-256 digest and accepts their artifact identity, project ownership, logical
+relative path, author, event, and immutable version in one transaction. The contract records no
+machine-specific source path and grants no model disclosure or execution authority. Input names
+and record metadata may be selected by context compilation; raw content is stored separately.
+
+A replacement names the current predecessor ID. Concurrent stale replacements fail with a version
+conflict; history is never overwritten. The record hash includes the predecessor hash and byte
+digest. A repeated idempotency key returns its accepted record only when the request still matches.
+Accepted artifact metadata and semantic projections cannot be overwritten through generic upserts.
+New versions cannot be attached after campaign closeout. Readers validate record hashes and lineage.
+
+Campaign archives include the input records and corresponding artifact metadata. Artifact bytes
+remain in the artifact store: this addition alone is not a self-contained transfer format. Transport
+adapters choose file-size, folder traversal, and media-preview limits; they must explain those limits
+and preserve per-file failures when an attachment batch is only partially accepted.

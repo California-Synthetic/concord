@@ -1,3 +1,5 @@
+mod project_inputs;
+
 use crate::agent_runtime::*;
 use crate::campaign_supervision::*;
 use crate::capability_packages::*;
@@ -244,6 +246,19 @@ impl Database {
 
             CREATE INDEX IF NOT EXISTS idx_artifacts_created_at
                 ON artifacts(created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS project_inputs (
+                id TEXT PRIMARY KEY,
+                campaign_id TEXT NOT NULL REFERENCES campaigns(id),
+                logical_path TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                artifact_id TEXT NOT NULL REFERENCES artifacts(id),
+                idempotency_key TEXT NOT NULL,
+                record_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(campaign_id,logical_path,version),
+                UNIQUE(campaign_id,idempotency_key)
+            );
 
             CREATE TABLE IF NOT EXISTS budgets (
                 id TEXT PRIMARY KEY,
@@ -5679,6 +5694,7 @@ impl Database {
         .filter(|capability| capability_ids.contains(&capability.id))
         .collect();
         Ok(CampaignArchive {
+            project_inputs: self.project_inputs(campaign_id)?,
             schema_version: "concord.campaign/0.1".to_owned(),
             exported_at: Utc::now().to_rfc3339(),
             campaign,
@@ -5703,7 +5719,7 @@ impl Database {
             )?,
             artifacts: read_all_for_campaign(
                 &connection,
-                "SELECT a.id,a.run_id,a.kind,a.media_type,a.byte_size,a.path,a.source_path,a.created_at FROM artifacts a JOIN runs r ON r.id=a.run_id WHERE r.campaign_id=?1 ORDER BY a.created_at",
+                "SELECT a.id,a.run_id,a.kind,a.media_type,a.byte_size,a.path,a.source_path,a.created_at FROM artifacts a WHERE EXISTS(SELECT 1 FROM runs r WHERE r.id=a.run_id AND r.campaign_id=?1) OR EXISTS(SELECT 1 FROM project_inputs i WHERE i.artifact_id=a.id AND i.campaign_id=?1) ORDER BY a.created_at",
                 campaign_id,
                 |row| Ok(Artifact { id: row.get(0)?, run_id: row.get(1)?, kind: row.get(2)?, media_type: row.get(3)?, byte_size: row.get::<_, i64>(4)? as u64, path: row.get(5)?, source_path: row.get(6)?, created_at: row.get(7)? }),
             )?,
@@ -6599,6 +6615,19 @@ fn settle_run_budget_tx(transaction: &Transaction<'_>, run_id: &str) -> Result<(
 }
 
 fn insert_artifact_tx(transaction: &Transaction<'_>, artifact: &Artifact) -> Result<()> {
+    let input_owned: bool = transaction.query_row(
+        "SELECT EXISTS(SELECT 1 FROM project_inputs WHERE artifact_id=?1)",
+        [&artifact.id],
+        |row| row.get(0),
+    )?;
+    if input_owned {
+        let identical: bool = transaction.query_row("SELECT EXISTS(SELECT 1 FROM artifacts WHERE id=?1 AND run_id IS ?2 AND kind=?3 AND media_type=?4 AND byte_size=?5 AND path=?6 AND source_path IS ?7 AND created_at=?8)", params![artifact.id, artifact.run_id, artifact.kind, artifact.media_type, artifact.byte_size as i64, artifact.path, artifact.source_path, artifact.created_at], |row| row.get(0))?;
+        anyhow::ensure!(
+            identical,
+            "accepted project input artifact metadata is immutable"
+        );
+        return Ok(());
+    }
     transaction.execute(
         "INSERT OR REPLACE INTO artifacts(id,run_id,kind,media_type,byte_size,path,source_path,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
         params![artifact.id, artifact.run_id, artifact.kind, artifact.media_type, artifact.byte_size as i64,
@@ -6608,6 +6637,34 @@ fn insert_artifact_tx(transaction: &Transaction<'_>, artifact: &Artifact) -> Res
 }
 
 fn upsert_semantic_object_tx(transaction: &Transaction<'_>, object: &SemanticObject) -> Result<()> {
+    let input_json: Option<String> = transaction
+        .query_row(
+            "SELECT record_json FROM project_inputs WHERE id=?1",
+            [&object.id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(input_json) = input_json {
+        let record: crate::ProjectInputVersion = serde_json::from_str(&input_json)?;
+        record.validate()?;
+        anyhow::ensure!(
+            object.payload == serde_json::to_value(&record)?
+                && object.type_name == crate::PROJECT_INPUT_CONTRACT
+                && object.kind == "input"
+                && object.campaign_id.as_deref() == Some(record.campaign_id.as_str())
+                && object.run_id.is_none()
+                && object.state == "attached"
+                && object.label.as_deref() == Some(record.logical_path.as_str())
+                && object.created_at == record.created_at
+                && object.updated_at == record.created_at,
+            "accepted project input projection is immutable"
+        );
+    } else {
+        anyhow::ensure!(
+            object.type_name != crate::PROJECT_INPUT_CONTRACT,
+            "project input records must use the input attachment boundary"
+        );
+    }
     transaction.execute(
         r#"INSERT INTO semantic_objects
         (id,campaign_id,run_id,kind,type_name,state,label,payload_json,created_at,updated_at)
