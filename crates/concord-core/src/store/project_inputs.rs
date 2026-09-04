@@ -139,6 +139,30 @@ impl Database {
         Ok(records)
     }
 
+    pub fn project_input_for_artifact(
+        &self,
+        artifact_id: &str,
+    ) -> Result<Option<ProjectInputVersion>> {
+        let json: Option<String> = self
+            .connect()?
+            .query_row(
+                "SELECT record_json FROM project_inputs WHERE artifact_id=?1",
+                [artifact_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        json.map(|json| {
+            let record: ProjectInputVersion = serde_json::from_str(&json)?;
+            record.validate()?;
+            anyhow::ensure!(
+                record.artifact_id == artifact_id,
+                "input artifact binding mismatch"
+            );
+            Ok(record)
+        })
+        .transpose()
+    }
+
     pub fn project_input(
         &self,
         campaign_id: &str,
