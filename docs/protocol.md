@@ -166,3 +166,19 @@ binding; an approved task does not silently switch to it. This resolution preced
 approved byte reads; the product still owns local byte access and verifies content against the
 accepted input record. Provider readiness and budget availability are checked again at dispatch;
 plan approval cannot guarantee that either remains available later.
+
+### Durable agent progression requests
+
+`concord.agent-progression/1` records a Run or Pause scheduling request against an agent revision and
+a preceding progression-record hash. `Database::set_agent_progression` is optimistic and idempotent;
+replaying an old Run request after Pause returns its historical receipt without reactivating it.
+The journal is included in campaign archives and does not alter the agent's semantic event stream.
+In particular, a recorded model response remains the last semantic checkpoint until finalized.
+
+Run requests require a Ready or ReadyForTool agent and cannot start a lineage-only coordinator.
+They do not approve tools, authorize ambiguous retries, enlarge frozen limits, or bypass Epact or
+campaign supervision. Pause records intent to stop future checkpoints and may be recorded while a
+model/tool is in flight. The current effect still requires normal settlement or recovery. A daemon
+may resume an active Run request at a known safe checkpoint after restart; it must stop at approval,
+review, limits, terminal state, or ambiguous in-flight state. An old request is never proof that an
+uncertain effect should be repeated.

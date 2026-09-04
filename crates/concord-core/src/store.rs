@@ -1,3 +1,4 @@
+mod agent_progression;
 mod project_inputs;
 mod research_execution;
 
@@ -694,6 +695,14 @@ impl Database {
                 ON external_jobs(campaign_id,updated_at DESC);
             CREATE INDEX IF NOT EXISTS idx_external_jobs_updated
                 ON external_jobs(updated_at DESC);
+
+            CREATE TABLE IF NOT EXISTS agent_progressions (
+                agent_run_id TEXT NOT NULL REFERENCES agent_runs(id),
+                sequence INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                record_json TEXT NOT NULL,
+                PRIMARY KEY(agent_run_id,sequence)
+            );
 
             CREATE TABLE IF NOT EXISTS provider_profiles (
                 id TEXT PRIMARY KEY,
@@ -5752,6 +5761,7 @@ impl Database {
             external_jobs: read_all_for_campaign(&connection, "SELECT id,campaign_id,run_id,provider,external_id,label,status,chip,submitted_at,started_at,finished_at,rate_per_min_usd,max_cost_usd,cost_usd,queue_position,estimated_wait_seconds,payload_json,updated_at FROM external_jobs WHERE campaign_id=?1 ORDER BY updated_at", campaign_id, external_job_from_row)?,
             projections: read_all_for_campaign(&connection, "SELECT id,campaign_id,run_id,object_id,space,x,y,z,group_id,signals_json,selected,label,updated_at FROM object_projections WHERE campaign_id=?1 ORDER BY updated_at", campaign_id, projection_from_row)?,
             research_plans,
+            agent_progressions: agent_runs.iter().map(|entry| self.agent_progressions(&entry.run.id)).collect::<Result<Vec<_>>>()?.into_iter().flatten().collect(),
             agent_runs,
             science_artifacts,
             execution,

@@ -756,6 +756,8 @@ pub struct ReplayCampaignRequest {
 #[serde(rename_all = "camelCase")]
 pub struct CampaignArchive {
     #[serde(default)]
+    pub agent_progressions: Vec<crate::agent_progression::AgentProgressionRecord>,
+    #[serde(default)]
     pub project_inputs: Vec<crate::project_inputs::ProjectInputVersion>,
     pub schema_version: String,
     pub exported_at: String,

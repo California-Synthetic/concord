@@ -4,6 +4,7 @@
 //! supervision mechanisms. Product interfaces and provider transports consume this runtime; they
 //! do not redefine its durable scientific state.
 
+pub mod agent_progression;
 pub mod agent_runtime;
 pub mod artifacts;
 pub mod campaign_supervision;
@@ -20,6 +21,7 @@ pub mod source_gate;
 pub mod standing_review;
 pub mod store;
 
+pub use agent_progression::*;
 pub use agent_runtime::*;
 pub use artifacts::ArtifactStore;
 pub use campaign_supervision::*;
